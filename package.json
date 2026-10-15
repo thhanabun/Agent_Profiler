@@ -1,0 +1,36 @@
+{
+  "name": "subharness-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A terminal workspace for profile-based native coding harness orchestration",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "subharness": "bin/subharness.mjs"
+  },
+  "scripts": {
+    "start": "tsx src/cli.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "web:build": "tsc -p web/tsconfig.json",
+    "web:serve": "node web/serve.mjs",
+    "typecheck:mission": "tsc -p web/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.300",
+    "@opencode-ai/sdk": "1.19.0",
+    "fflate": "0.8.3",
+    "ink": "8.0.0",
+    "react": "19.3.1",
+    "zod": "4.6.7",
+    "wrap-ansi": "10.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

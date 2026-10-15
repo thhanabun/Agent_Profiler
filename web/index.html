@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mission OS — UI template</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./dist/web/src/main.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="#create">Mission OS</a>
+      <nav aria-label="หน้าตัวอย่าง"><a href="#workspace">Workspace</a><a href="#review">Review</a><a href="#public-event">Public preview</a></nav>
+    </header>
+    <main>
+      <aside class="notice"><strong>TEMPLATE / SAMPLE DATA</strong> — ยังไม่เรียก AI, เชื่อม DB หรือเผยแพร่อีเวนต์ ทุกข้อมูลตัวอย่างเป็นข้อมูลสมมติ</aside>
+      <p id="feedback" role="status" aria-live="polite"></p>
+      <section id="create" class="card" aria-labelledby="create-title">
+        <h1 id="create-title">เริ่ม Mission</h1>
+        <form id="create-form">
+          <label for="mission-title">ชื่องาน</label>
+          <input id="mission-title" name="title" required maxlength="160" value="เปิดรับสมัคร AI for Community">
+          <label for="mission-goal">เป้าหมายและข้อจำกัด</label>
+          <textarea id="mission-goal" name="goal" required maxlength="4000" rows="3">เตรียม workshop 60 คน งบไม่เกิน 15,000 บาท พร้อมหน้าเปิดรับสมัคร</textarea>
+          <label for="mission-files">ไฟล์ brief / venues / costs — ยังไม่เชื่อม upload</label>
+          <input id="mission-files" type="file" accept=".md,.txt,.csv" multiple disabled>
+          <div class="actions"><button type="submit">สร้าง Mission — API stub</button><button id="load-sample" type="button">แสดงข้อมูลตัวอย่าง</button></div>
+        </form>
+      </section>
+      <section id="workspace" aria-labelledby="workspace-title">
+        <h2 id="workspace-title">Workspace</h2>
+        <p id="mission-summary"></p>
+        <div class="workspace-grid">
+          <aside class="card"><h3>Files</h3><ul id="files"></ul><p class="muted">TODO: upload / source preview / file versions</p></aside>
+          <article class="card">
+            <h3>Outputs</h3><p>ยังไม่มี artifacts จากการทำงานจริง</p>
+            <pre id="inputs-preview" tabindex="0" aria-label="Canonical inputs ตัวอย่าง"></pre>
+            <p>ผลคาดหมายของ fixture: 6,000 + (60 × 80) = 10,800 บาท — ยังไม่ได้รัน validator</p>
+            <button type="button" disabled>เปลี่ยนเป็น 80 คน — รอ revision API</button>
+          </article>
+          <aside class="card"><h3>Workers / tasks</h3><ul id="tasks"></ul><h3>Decisions</h3><p>TODO: capacity conflict และตัวเลือกจาก venues.csv</p></aside>
+        </div>
+      </section>
+      <section id="review" class="card" aria-labelledby="review-title">
+        <h2 id="review-title">Review / approve</h2>
+        <p>ยังไม่มี bundle หรือ checks ที่ผ่านจริง</p>
+        <p class="muted">TODO: artifact diff, affected/reused outputs, current revision และ public version</p>
+        <button type="button" disabled>อนุมัติและเปิดรับสมัคร — รอ validated bundle</button>
+      </section>
+      <section id="public-event" class="card public-preview" aria-labelledby="event-title">
+        <p class="muted">Public mobile preview — ยังไม่มี URL เผยแพร่จริง</p>
+        <h2 id="event-title"></h2><p id="event-description"></p><p id="event-details"></p><p id="event-seats"></p>
+        <label for="nickname">ชื่อเล่นทดสอบ</label><input id="nickname" maxlength="80" disabled>
+        <button type="button" disabled>สมัครเข้าร่วม — รอ signup API</button>
+        <p class="muted">TODO: receipt, full/stale/error states และ audio/text alternative</p>
+      </section>
+    </main>
+  </body>
+</html>

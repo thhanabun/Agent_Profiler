@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "name": "My implementation team",
+  "orchestrator": "ghcr.io/your-org/conductor:1.0.0",
+  "workers": ["ghcr.io/your-org/builder:1.0.0"]
+}
