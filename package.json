@@ -12,6 +12,7 @@
   },
   "scripts": {
     "start": "tsx src/cli.tsx",
+    "host": "node --import tsx server/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts"
   },
