@@ -32,7 +32,7 @@ git switch -c feat/mission-backend-local
 6. ทำ publish และ signup transactions: exact bundle, idempotent receipt, stale bundle, capacity/last-seat race และ owner-only CSV
 7. ทำ local owner/API/public flow ให้ UI ต่อได้; **ยังไม่ทำ hosting, public URL, domain หรือ deploy cloud functions**
 
-ไฟล์หลักที่คุณเป็นเจ้าของคือ `supabase/**`, `.env.example` ภายใน `supabase/` และเอกสารวิธีรัน local หากต้องเปลี่ยน `mission/contracts.ts`, `web/src/api.ts` หรือ root package manifests ให้ตกลงกับอีกสองคนก่อน การต่อ provider/U-Bot/domain tools เป็นงานร่วมกับเจ้าของ Core
+ไฟล์หลักที่คุณเป็นเจ้าของคือ `supabase/**`, `.env.example` ภายใน `supabase/` และเอกสารวิธีรัน local หากต้องเปลี่ยน `mission/contracts.ts`, `web/src/api.ts` หรือ root package manifests ให้ตกลงกับอีกสองคนก่อน การต่อ model provider/domain tools เป็นงานร่วมกับเจ้าของ Core; ตัด U-Bot ออกจากขอบเขตเพราะไม่มีระบบให้เชื่อม
 
 ### ส่งงานกลับ
 
@@ -145,9 +145,9 @@ mission/contracts.ts           สัญญาร่วม เปลี่ยน
 
 ## 3. ขอบเขตร่วมกับ Core/AI
 
-**Core ส่งให้:** validators, canonical facts, fixed task graph/readsets, provider calls/tool proposals, artifact/check proposals และ U-Bot integration
+**Core ส่งให้:** intake/output runtime schemas, canonical facts, fixed task graph/readsets, model-provider boundary, domain tool results และ deterministic artifact checks
 
-ความคืบหน้าบน branch `agent`: `mission/domain.ts` มี WorkshopInputs validation, source CSV parsing, deterministic budget/capacity calculation และ task invalidation plan แล้ว Backend ยังต้อง validate request ฝั่ง Edge และบังคับ readset/commit guards ใน DB; helper เหล่านี้ยังไม่ถูกเรียกจาก runner
+ความคืบหน้าบน branch `agent`: `mission/domain.ts` ตรวจ WorkshopInputs/CSV/งบ/ความจุและวางแผน invalidation; `mission/artifacts.ts` ตรวจหลักฐาน intake, schemas ของ budget/agenda/event และผลเช็ก output; `mission/agent.ts` หยุดก่อนเรียกโมเดลเมื่อ budget/capacity ไม่ผ่าน และใช้ provider callback เมื่อผ่าน มี automated tests สำหรับ acceptance cases แล้ว แต่ยังไม่มี model-provider adapter หรือการเรียก runner จริง Backend ต้องตรวจ request ฝั่ง Edge และบังคับ readset/commit guards ใน DB
 
 **คุณบังคับที่ DB/API:** ownership, quota admission, immutable snapshots, revision/run/generation/stop_epoch, lease/claim, atomic artifact+task completion และ publish/signup rules
 
@@ -177,7 +177,7 @@ Unique constraint ใน migration ช่วยกัน request ซ้ำ แ�
 - [ ] Frontend ใช้ Supabase public configuration กับ user access token; server credentials/provider keys อยู่ฝั่ง backend
 - [ ] ตั้ง CORS allowlist ให้ตรง origin ของ Vite ที่ใช้จริง และทดสอบ owner/public routes แยก session
 - [ ] ทำวิธีรัน local DB + Functions + frontend ที่ทำตามได้ ห้าม reset DB ที่มีข้อมูลต้องเก็บโดยไม่ตรวจ
-- [ ] U-Bot เป็นงาน Core ร่วมตรวจสิทธิ์; ElevenLabs ทำเมื่อ entitlement พร้อมและไม่เบียด core flow
+- [ ] ไม่ต้องทำ U-Bot integration; ไม่มีระบบ/API ให้เชื่อม ส่วน ElevenLabs/audio ยังเป็นงานเสริมแยกจาก Core flow
 - [ ] Audio ผูก source script/bundle hash และ cached playback; อย่า regenerate ต่อ page view
 - [ ] ถ้ายังไม่มี scheduler ที่พิสูจน์แล้ว ให้สื่อว่า resume เมื่อกลับมา ห้ามอ้างว่าปิดแท็บแล้วทำต่อแน่นอน
 

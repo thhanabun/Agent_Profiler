@@ -11,12 +11,15 @@ const validDate = (value: string) => {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
 
+export const workshopDateSchema = z.string().refine(validDate, 'Use a real calendar date in YYYY-MM-DD format.');
+export const workshopTimeSchema = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour HH:mm time.');
+
 export const workshopInputsSchema = z.object({
   topic: z.string().trim().min(1).max(160),
   audience: z.string().trim().min(1).max(240),
-  date: z.string().refine(validDate, 'Use a real calendar date in YYYY-MM-DD format.'),
-  startTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour HH:mm time.'),
-  endTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour HH:mm time.'),
+  date: workshopDateSchema,
+  startTime: workshopTimeSchema,
+  endTime: workshopTimeSchema,
   attendees: z.number().int().min(1).max(MAX_ATTENDEES),
   maxBudgetThb: z.number().int().min(0).max(MAX_MONEY_THB),
   venueId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/),

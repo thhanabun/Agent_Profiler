@@ -85,7 +85,7 @@ docs/                      Architecture, protocol, images, test evidence
 | Owner accounts / storage | ยังไม่มี | ต้องมี Auth, DB, private files, RLS/grants และตรวจ owner ฝั่ง server |
 | Public event / registrations | ยังไม่มี | Renderer, signed-in owner export, idempotent receipt, atomic seat capacity และ signup/public read limits |
 | Quota / cost controls | ยังไม่มี ledger | ต้อง reserve quota แบบ atomic ระดับ project/Mission/revision และนับ failed/retry/stale attempts ตามนโยบาย |
-| U-Bot / ElevenLabs | ยังไม่พบ integration | ต้องตรวจสิทธิ์และต่อจริง; audio ต้องอ้าง canonical script/version และไม่สร้างใหม่ทุกครั้งที่คนกดฟัง |
+| U-Bot / ElevenLabs | U-Bot ถูกตัดจากขอบเขตเพราะไม่มีระบบให้เชื่อม; ElevenLabs ยังไม่มี integration | ไม่ทำ U-Bot; audio/ElevenLabs เป็นงานเสริมแยกจาก Mission Agent core |
 | Web UX / deployment | ยังไม่มี | ไม่พบ web app/build, Supabase migrations/functions หรือ Cloudflare deployment config ใน source ที่ตรวจ |
 | Mission acceptance evidence | ยังไม่มี | Coding benchmark และ native adapter tests ไม่ครอบคลุม workshop, approval, signup หรือ tenant isolation |
 
@@ -106,7 +106,10 @@ docs/                      Architecture, protocol, images, test evidence
 - parser อ่าน CSV ที่มี quoted fields และ UTF-8 size limit; ปฏิเสธ headers, ตัวเลข และ venue/item ซ้ำที่ผิด พร้อมเก็บเลขบรรทัด source
 - `calculateBudgetCapacity` คำนวณจาก venues/costs จริง ให้ checks และตัวเลือกเฉพาะ venue จากไฟล์ต้นทางที่ผ่านเงื่อนไข
 - `planMissionInvalidation` map fields/files ไปยัง task graph คงที่และ downstream tasks ที่ควรทำใหม่
-- helper ยังไม่ต่อ intake LLM/U-Bot, persistent readsets, runner leases, artifact hashes, API/DB หรือ UI decisions; typecheck ผ่านแต่ยังไม่มี automated fixture tests สำหรับโมดูลนี้
+- `mission/artifacts.ts` เพิ่ม intake proposal ที่ต้องมี quote ตรงกับ source line, คำถามของ fields ที่ขาด, runtime schemas ของ budget/agenda/event และตรวจเวลา/ข้อเท็จจริงก่อนส่งต่อ
+- `mission/agent.ts` คำนวณ budget/capacity ก่อนเรียก model-provider callback; ถ้าไม่ผ่านจะคืน decision จาก source และไม่เรียกโมเดล; ถ้าผ่านจะสร้าง agenda/event copy แล้วตรวจ outputs แบบ deterministic
+- automated tests ครอบคลุมสองหัวข้อที่ต่างกัน, A/60 = 10,800, A/80 blocker, B/80 = 14,400, B/80 เมื่อ fixed cost เป็น 10,000 แล้วรวม 16,400, intake citation, agenda overlap, forged budget และ task invalidation
+- ยังไม่ต่อ provider adapter, backend runner/leases, persisted readsets/artifact hashes, API/DB หรือ UI; U-Bot ถูกตัดจาก scope
 
 ## 4. อะไรควรเก็บ ใช้เป็นแบบอย่าง และพักไว้
 
@@ -134,7 +137,7 @@ docs/                      Architecture, protocol, images, test evidence
 - `final-review.md` บอกว่าไม่พบ source ในบริบทที่เอกสารนั้นถูกเขียน; โฟลเดอร์นี้มี source และ test evidence แล้ว จึงใช้ประโยคดังกล่าวประเมิน repo ปัจจุบันตรง ๆ ไม่ได้
 - README ปัจจุบันบรรทัด 211 ยังกล่าวว่ามีสอง adapters และ Codex ยังไม่ทำ แต่ `src/codex.ts`, `docs/CODEX.md` และ live test evidence ยืนยันว่ามีแล้ว นี่เป็นงานปรับเอกสาร ไม่ใช่งานสร้าง adapter ใหม่
 - เอกสารใช้สมมติฐานสี่คน/หกชั่วโมง ไม่ใช่ประมาณเวลาที่ตรวจจากความเร็วทีมจริง โดยเฉพาะ runner races, authorization และ signup concurrency ยังมีงานใหม่หลายชั้น
-- Rubric ใน `final.md` ใช้ App execution 40 / Practicality 40 / UX 10 / Innovation & ecosystem 5 / U-Bot 5 ต่างจากข้อความแรกของแชทที่ใช้ Idea 40 และ ElevenLabs 5 ต้องยืนยันเกณฑ์ฉบับที่ทีมจะส่งก่อนล็อก pitch ไม่เดาคะแนนจากฟีเจอร์
+- Rubric ใน `final.md` ระบุ U-Bot 5 คะแนน แต่ผู้ใช้ยืนยันว่าไม่มี U-Bot/API ให้เชื่อม จึงตัด integration ออกจากงาน; หาก rubric ฉบับส่งยังให้คะแนนส่วนนี้ ต้องรับความเสี่ยงคะแนนหรือยืนยันกับผู้จัด
 
 ## 6. งาน CLI ที่ยังขาด และชุดงานที่ส่งต่อ UI ได้
 
@@ -179,15 +182,15 @@ Pi, recursive orchestration, background daemon และ arbitrary mid-session p
 
 **รับงานเมื่อ:** reload ได้ Mission เดิม, stale/expired/stopped results commit ไม่ได้, owner B อ่าน A ไม่ได้ และ browser ปลอม completed/checks/publish state ไม่ได้
 
-### B — Domain tools / AI / U-Bot
+### B — Domain tools / AI
 
-**รับผิดชอบ:** schema ของข้อมูล workshop, CSV parsing, input confirmation, deterministic budget/capacity/venue tools, prompts, output validation และ U-Bot integration
+**รับผิดชอบ:** schema ของข้อมูล workshop, CSV parsing, input confirmation, deterministic budget/capacity/venue tools, prompts และ output validation
 
 - แยก tasks `intake`, `budget_capacity`, `agenda`, `event_content`, `validate_bundle` พร้อม readsets ที่ A ใช้ได้
 - ไม่ให้ AI แต่งห้อง/ราคา/ความจุ หรือเป็นผู้ตัดสินว่า checks ผ่าน
 - Structured blocker ส่งตัวเลือกจากข้อมูลจริงพร้อมผลกระทบ; ข้อมูลขาดให้ถาม fields ที่ขาด
 - รองรับ brief อย่างน้อยสองหัวข้อและ incomplete-input case เพื่อแสดงว่า AI ไม่ได้คืน fixture เดิม
-- ตรวจรูปแบบ U-Bot request/response และสิทธิ์ก่อนอ้างว่า integration พร้อม; error ต้องแสดงตามจริง
+- ใช้ model adapter ที่ backend ตั้งค่าและตรวจ output ก่อนบันทึก; อย่าอ้างว่า live model integration พร้อมจาก fixture tests
 
 **รับงานเมื่อ:** A/60 = 10,800; A/80 ติดความจุ; B/80 = 14,400; เปลี่ยนค่าห้อง B เป็น 10,000 แล้วรวม 16,400 ติดงบ และกรณีไม่มีห้องที่ผ่านไม่สร้างตัวเลือกปลอม
 
@@ -267,7 +270,7 @@ Contract ขั้นต่ำที่ต้องตกลง:
 
 | ช่วง | สิ่งที่ต้องเห็น | งานที่ทำขนานได้ |
 |---|---|---|
-| 1 Contract + fixtures + access | Schema ร่วม, fixture คำนวณได้, provider smoke call, รู้ว่า U-Bot/audio ใช้สิทธิ์ใด | C วาง screens; D เปิด URL shell |
+| 1 Contract + fixtures + access | Schema ร่วม, fixture คำนวณได้, model-provider access ที่ยืนยันได้; U-Bot ถูกตัดจาก scope | C วาง screens; D เปิด URL shell |
 | 2 Vertical flow | Create → real AI/tools → persist artifacts → checks → preview → publish → mobile signup/receipt | A+B ทำ execution; C+D ต่อผลจริง |
 | 3 จุดเด่นของสินค้า | เปลี่ยน 60→80 → capacity blocker → เลือก B → เฉพาะ outputs ที่เกี่ยวข้อง stale → review/publish ใหม่ | ทำ diff/decision UI พร้อม readsets |
 | 4 Correctness / access / budget | Late result, stop, stale approval, two owners, lost response, last seat, caps ผ่าน | ทุกคนรับ tests ตาม owner |

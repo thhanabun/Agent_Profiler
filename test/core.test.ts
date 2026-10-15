@@ -19,7 +19,7 @@ const plan = () => ({ summary: 'Implement, design, then integrate.', tasks: [
 ] });
 
 async function temp<T>(work: (root: string) => Promise<T>): Promise<T> {
-  const testRoot = path.join(process.cwd(), '.subharness', 'tests');
+  const testRoot = path.join(process.cwd(), 'test', 'tmp');
   await mkdir(testRoot, { recursive: true });
   const root = await mkdtemp(path.join(testRoot, 'case-'));
   try { return await work(root); }

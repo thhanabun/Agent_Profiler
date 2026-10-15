@@ -53,7 +53,7 @@ export interface Artifact {
   inputHash: string;
   outputHash: string;
   provenance: { fileIds: string[]; taskId: string };
-  content: unknown; // Core owner must add kind-specific schemas before rendering real output.
+  content: unknown; // Parse with mission/artifacts.ts schemas before displaying or publishing.
 }
 
 export interface Bundle {

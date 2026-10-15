@@ -4,7 +4,7 @@
 
 ทำเว็บที่ผู้จัด workshop ใช้ตั้งแต่สร้าง Mission ไปจนตรวจผลงาน แก้ข้อขัดแย้ง อนุมัติเปิดรับสมัคร และมีหน้าสมัครที่อ่านง่ายบนมือถือ
 
-ทีมแบ่งสามคน: **คุณทำ UX/UI, เพื่อนอีกคนทำ Backend/API + DB, เจ้าของโปรเจกต์ทำ Core/AI** รวมถึง orchestrator, domain tools, dependency tracking และ U-Bot อย่าใช้ coding-session schema แทน Mission schema
+ทีมแบ่งสามคน: **คุณทำ UX/UI, เพื่อนอีกคนทำ Backend/API + DB, เจ้าของโปรเจกต์ทำ Core/AI** รวมถึง Mission Agent, domain tools และ dependency tracking; ตัด U-Bot ออกจากขอบเขตเพราะไม่มีระบบให้เชื่อม อย่าใช้ coding-session schema แทน Mission schema
 
 รอบนี้รับงานบน local environment ก่อน งาน deploy/hosting/โดเมนอยู่ในรอบถัดไป ไม่ใช่เงื่อนไขรับงานของเพื่อนทั้งสองคน
 
@@ -177,7 +177,7 @@ UI shell เสร็จแยกจาก flow จริงเสร็จ ก�
 ## สิ่งที่ต้องรอจากอีกสองคน
 
 - Backend: endpoint routes, local Supabase URL, auth integration, response examples และ access errors
-- Core: runtime schemas, extracted facts, artifacts, decisions, affected/reused outputs, checks และ U-Bot behavior
+- Core: runtime schemas, extracted facts, artifacts, decisions, affected/reused outputs และ checks
 - อย่ารอทั้งหมดค่อยเริ่ม: ทำ layout/state/error views จาก fixtures ก่อน แล้วรวม API ตั้งแต่ vertical flow แรก
 
 ## สิ่งที่ยังไม่รับรอง
