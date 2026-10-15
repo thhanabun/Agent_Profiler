@@ -1,6 +1,6 @@
 # Local Subharness host
 
-Steps 1–5 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
+Steps 1–6 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
 
 The default command starts HTTP instead of the Step-1 terminal JSONL passthrough. It serves a frontend build from the repository's fixed `web/dist` directory. The frontend itself is not present yet, so static page requests currently return HTTP 503 with build guidance.
 
@@ -36,6 +36,8 @@ Every method in [UI_PROTOCOL.md](../docs/UI_PROTOCOL.md) has a matching POST rou
 Transport errors use `{ok:false,error}`: 400 invalid envelope/method/URL, 401 missing/wrong token, 403 unexpected Host/Origin or unlisted profile reference, 404 route missing, 413 request too large, 415 wrong content type, 429 too many SSE clients, and 502/503 CLI unavailable/stopping.
 
 Only references returned by `profiles.choices` may be supplied to `session.create`. Arbitrary profile directories, executable paths, project paths and credentials are not accepted as HTTP configuration. The CLI still validates all parameters and owns profile trust and tool permission requests. Nothing auto-approves a request.
+
+The UI should display `GET /api/host`'s `cwd` as read-only text. There is no project-update or credential endpoint. Unknown parameter fields fail in the existing strict CLI schemas before any operation runs. Session IDs remain UUIDs (or `latest` for open), rather than filesystem paths. The frontend still needs to implement that read-only display when it is added.
 
 Requests are byte-limited to 64 KiB including the reserialized JSONL envelope and newline. At most 64 CLI requests and 16 event streams may be pending. A request times out after 30 seconds; a lost/timed-out mutation may already have run, so do not automatically retry it. IDs correlate replies, not idempotency receipts.
 
@@ -142,6 +144,7 @@ Negative checks:
 | Send malformed JSON or mismatching URL/body methods | HTTP 400. |
 | Send more than the JSONL byte limit | HTTP 413. |
 | Supply an arbitrary directory as `params.direct` | HTTP 403; no session is created. |
+| Add `cwd`, `shell`, `executable` or `credentials` to `session.create` params | HTTP 200 with `ok:false` and a validation error; no session is created and `/api/host` stays unchanged. |
 | Run another host on the same project | Nonzero exit; the first host retains its lock. |
 
 Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Interactive Ctrl+C has not yet been tested; automated EOF shutdown and lock cleanup have passed.

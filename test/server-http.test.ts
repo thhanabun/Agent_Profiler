@@ -146,6 +146,44 @@ test('loopback guards reject browser bypasses and bound authenticated SSE client
   } finally { await Promise.all(streams.map(stream => stream.close())); }
 }));
 
+test('browser configuration stays fixed and all operations retain strict protocol validation', { timeout: 20000 }, () => fixture(async (host, root) => {
+  const metadata = JSON.parse((await http(host, '/api/host')).body);
+  assert.equal(metadata.cwd, host.cwd);
+  assert.equal(metadata.stateDir, path.join(host.cwd, '.subharness'));
+  const choices = await post(host, 'profiles.choices');
+  assert(choices.result.some((choice: { reference: string }) => choice.reference === 'implement'));
+  for (const params of [{ direct: root }, { orchestrator: root }, { workers: [root] }])
+    assert.equal((await http(host, '/api/session.create', envelope('session.create', params))).status, 403);
+  for (const field of ['cwd', 'stateDir', 'executable', 'shell', 'command', 'credentials', 'apiKey']) {
+    const rejected = await post(host, 'session.create', { direct: 'implement', [field]: 'browser-supplied' });
+    assert.equal(rejected.ok, false, field);
+    assert.match(rejected.error, /Unrecognized key/);
+  }
+  assert.deepEqual((await post(host, 'session.list')).result, []);
+  const session = await post(host, 'session.create', { direct: 'implement', title: 'Fixed project' });
+  assert.equal(session.ok, true);
+  const sessionId = session.result.session.id;
+  const params: Record<string, Record<string, unknown>> = {
+    'profiles.list': {}, 'profiles.choices': {}, 'session.list': {}, 'session.create': { direct: 'implement' },
+    'session.open': { sessionId }, 'session.get': { sessionId }, 'session.rename': { sessionId, title: 'Rejected' },
+    'session.submit': { sessionId, text: 'Rejected' }, 'session.stop': { sessionId }, 'session.pause': { sessionId },
+    'session.resume': { sessionId }, 'session.retry': { sessionId },
+    'session.assign': { sessionId, taskId: 'missing', profileId: 'implement' },
+    'request.respond': { sessionId, requestId: sessionId, answer: 'no' },
+  };
+  assert.deepEqual(Object.keys(params).sort(), [...metadata.methods].sort());
+  for (const [method, fields] of Object.entries(params)) {
+    const rejected = await post(host, method, { ...fields, credentials: 'browser-supplied' });
+    assert.equal(rejected.ok, false, method);
+    assert.match(rejected.error, /Unrecognized key/);
+  }
+  assert.equal((await post(host, 'session.open', { sessionId: '../outside' })).ok, false);
+  const current = await post(host, 'session.get', { sessionId });
+  assert.equal(current.result.session.title, 'Fixed project');
+  assert.deepEqual(current.result.session.tasks, []);
+  assert.deepEqual(JSON.parse((await http(host, '/api/host')).body), metadata);
+}));
+
 test('SSE relays demo state and errors, replays latest state, and retains local sessions', { timeout: 30000 }, () => fixture(async (host, root) => {
   const stream = await events(host);
   let reconnected: Awaited<ReturnType<typeof events>> | undefined;
