@@ -59,9 +59,10 @@ export class Bridge extends EventEmitter {
         } else throw new Error('Invalid CLI reply.');
       } catch (error) { fail(error instanceof Error ? error : new Error(String(error))); }
     });
+    output.once('close', () => { if (!this.stopping) fail(new Error('CLI stdout closed unexpectedly.')); });
     this.closed = new Promise(resolve => this.child.once('close', (code, signal) => {
       clearTimeout(timer); output.close();
-      if (!this.stopping || code !== 0) fail(new Error(`CLI closed (code ${code}, signal ${signal ?? 'none'}).`));
+      if (!ready || !this.stopping || code !== 0) fail(new Error(`CLI closed (code ${code}, signal ${signal ?? 'none'}).`));
       else {
         for (const pending of this.pending.values()) pending.reject(new Error('CLI closed.'));
         this.pending.clear();

@@ -9,7 +9,8 @@ class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
 }
 
-export async function startHost(options: { cwd: string; port?: number; stateDir?: string; demo?: boolean }) {
+export async function startHost(options: { cwd: string; port?: number; stateDir?: string; demo?: boolean }, signal?: AbortSignal) {
+  signal?.throwIfAborted();
   const cwd = await realpath(options.cwd);
   if (!(await stat(cwd)).isDirectory()) throw new Error('--cwd must be an existing directory.');
   const stateDir = path.resolve(options.stateDir ?? path.join(cwd, '.subharness'));
@@ -22,6 +23,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
   const streams = new Set<ServerResponse>();
   let origin = '';
   let stopping = false;
+  let failure: Error | undefined;
   let closing: Promise<void> | undefined;
   const json = (response: ServerResponse, status: number, value: unknown) => {
     if (!response.destroyed && !response.writableEnded) {
@@ -50,7 +52,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
       }
       if (request.method === 'GET' && url.pathname === '/api/events') {
         if (streams.size >= 16) throw new HttpError(429, 'Too many event streams.');
-        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff' });
+        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'close', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff' });
         sendEvent(response, await bridge.ready);
         if (bridge.latest) sendEvent(response, bridge.latest);
         streams.add(response);
@@ -111,22 +113,37 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
     const stopped = new Promise<void>(resolve => server.close(() => resolve()));
     await bridge.close();
     for (const stream of streams) stream.end();
-    server.closeAllConnections();
-    await stopped;
+    // The CLI has flushed; only stalled network clients are force-closed after this grace period.
+    const timer = setTimeout(() => server.closeAllConnections(), 5000);
+    try { await stopped; }
+    finally { clearTimeout(timer); signal?.removeEventListener('abort', aborted); }
   })();
-  bridge.on('failure', () => { void close(); });
+  const aborted = () => { void close(); };
+  signal?.addEventListener('abort', aborted, { once: true });
+  if (signal?.aborted) aborted();
+  bridge.on('failure', error => { failure = error; void close(); });
   bridge.on('closed', () => { void close(); });
+  server.on('error', error => { failure = error; void close(); });
   try {
     await bridge.ready;
+    signal?.throwIfAborted();
+    if (stopping) throw failure ?? new Error('Host stopped before listening.');
     await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); });
+      const cancelled = () => reject(signal!.reason);
+      signal?.addEventListener('abort', cancelled, { once: true });
+      const finished = (error?: Error) => {
+        signal?.removeEventListener('abort', cancelled); server.off('error', finished);
+        if (error) reject(error); else resolve();
+      };
+      server.once('error', finished);
+      server.listen(port, '127.0.0.1', () => finished());
     });
+    signal?.throwIfAborted();
   } catch (error) { await close(); throw error; }
   const address = server.address();
   if (!address || typeof address === 'string') { await close(); throw new Error('Host did not start.'); }
   origin = `http://127.0.0.1:${address.port}`;
-  const closed = bridge.closed.then(async () => { await close(); if (bridge.failure) throw bridge.failure; });
+  const closed = bridge.closed.then(async () => { await close(); if (failure ?? bridge.failure) throw failure ?? bridge.failure; });
   void closed.catch(() => {});
   return { url: origin, token, cwd, stateDir, demo, child: bridge.child, closed, close };
 }

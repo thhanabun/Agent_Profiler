@@ -1,6 +1,6 @@
 # Local Subharness host
 
-Steps 1–2 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
+Steps 1–3 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
 
 The default command now starts HTTP instead of the Step-1 terminal JSONL passthrough. There is no browser UI or static build integration yet.
 
@@ -86,12 +86,16 @@ Negative checks:
 
 Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Interactive Ctrl+C has not yet been tested; automated EOF shutdown and lock cleanup have passed.
 
+Startup cancellation, child errors/stdout EOF and occupied ports close the host without starting a replacement runner. Unexpected CLI failure exits nonzero. Normal shutdown lets the CLI flush first, ends SSE responses and allows up to five seconds for stalled network clients to disconnect. It does not force-kill the CLI. After a crash, the existing CLI lock recovery checks whether the saved PID is alive before recovering a stale lock.
+
+To check persistence manually, restart with exactly the same `--cwd`, `--state-dir` (if supplied) and `--demo` setting. Copy the newly printed token into Terminal B, then list/open the saved session. Expected: the session ID and title remain; the old token gets HTTP 401. Demo and live histories remain separate. Changing projects requires stopping this host and starting another with the new trusted project path.
+
 ## Checks
 
 ```powershell
 npm run typecheck
-node --import tsx --test test/server.test.ts test/server-http.test.ts
+node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts
 npm test
 ```
 
-Tests use temporary projects and explicit demo mode. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown and occupied-port cleanup. They do not call providers.
+Tests use temporary projects and explicit demo mode. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation and stale-lock recovery after a simulated child crash. They do not call providers.
