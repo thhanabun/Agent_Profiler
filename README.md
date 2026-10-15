@@ -45,7 +45,7 @@ For your UI developer: `node bin/subharness.mjs serve --stdio --cwd /path/to/pro
 
 ## Mission OS handoff templates
 
-The separate Mission scaffold lives in `mission/`, `web/`, `supabase/` and `fixtures/workshop/`. It does not connect the native CLI engine to a hosted backend. The browser preview uses visibly labelled sample data; API methods fail explicitly until implemented. Supabase migrations/functions are templates, not an applied or deployed backend.
+The separate Mission scaffold lives in `mission/`, `web/`, `supabase/` and `fixtures/workshop/`. `mission/domain.ts` now provides workshop-input validation, bounded CSV parsing, source-based budget/capacity checks, and a fixed-task invalidation plan. These helpers are not connected to the runner, API, or persistence yet. The browser preview uses visibly labelled sample data; API methods fail explicitly until implemented. Supabase migrations/functions are templates, not an applied or deployed backend.
 
 ```sh
 npm run web:build

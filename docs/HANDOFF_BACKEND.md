@@ -147,6 +147,8 @@ mission/contracts.ts           สัญญาร่วม เปลี่ยน
 
 **Core ส่งให้:** validators, canonical facts, fixed task graph/readsets, provider calls/tool proposals, artifact/check proposals และ U-Bot integration
 
+ความคืบหน้าบน branch `agent`: `mission/domain.ts` มี WorkshopInputs validation, source CSV parsing, deterministic budget/capacity calculation และ task invalidation plan แล้ว Backend ยังต้อง validate request ฝั่ง Edge และบังคับ readset/commit guards ใน DB; helper เหล่านี้ยังไม่ถูกเรียกจาก runner
+
 **คุณบังคับที่ DB/API:** ownership, quota admission, immutable snapshots, revision/run/generation/stop_epoch, lease/claim, atomic artifact+task completion และ publish/signup rules
 
 - [ ] Claim task แบบ atomic พร้อม token/lease/attempt; reserve quota ก่อน provider dispatch

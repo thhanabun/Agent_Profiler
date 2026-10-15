@@ -2,7 +2,7 @@
 
 วันที่ตรวจ: 16 ตุลาคม 2026
 
-อัปเดตหลังการวิเคราะห์: เพิ่ม Mission/web/Supabase templates และแก้ README เรื่อง Codex แล้ว รายงานด้านล่างเป็น snapshot ก่อนเพิ่มโครง สถานะล่าสุดและงานส่งต่อดู [UX/UI handoff](HANDOFF_UX_UI.md) และ [Backend handoff](HANDOFF_BACKEND.md) การมี template ยังไม่ใช่การ implement business flow สำเร็จ
+อัปเดตหลังการวิเคราะห์: เพิ่ม Mission/web/Supabase templates, helper แกน domain ใน branch `agent` และแก้ README เรื่อง Codex แล้ว รายงานด้านล่างเป็น snapshot ก่อนเพิ่มโครง สถานะล่าสุดและงานส่งต่อดู [UX/UI handoff](HANDOFF_UX_UI.md) และ [Backend handoff](HANDOFF_BACKEND.md) การมี template ยังไม่ใช่การ implement business flow สำเร็จ
 
 ## 1. ขอบเขตและข้อสรุป
 
@@ -77,7 +77,7 @@ docs/                      Architecture, protocol, images, test evidence
 | Snapshot และ revision | มีเฉพาะ file-diff snapshots | ต้องเพิ่ม immutable input versions, selected-field hashes และ run/generation; snapshot เดิมไม่ได้เป็นแหล่งข้อมูล immutable ที่ worker อ่าน |
 | Dependency invalidation | ยังไม่มี | Steering ปัจจุบันหยุด pending tasks แล้ว replan; ยังไม่รู้ว่าเปลี่ยน 60→80 แล้ว agenda ใดใช้ต่อได้ |
 | Output artifacts / provenance | มีข้อความและไฟล์ที่เปลี่ยน | ต้องมี budget/agenda/event artifacts ที่มี version, input/output hashes, source provenance และชุดที่สอดคล้องกัน |
-| Deterministic checks | ยังไม่มีสำหรับ Mission | ต้องคำนวณงบ/ความจุและตรวจ canonical facts ด้วยโค้ด; task completed ปัจจุบันหมายถึง worker ตอบกลับ ไม่ใช่ business checks ผ่าน |
+| Deterministic checks | มี helper บางส่วนใน `mission/domain.ts` บน branch `agent` | มีการตรวจ WorkshopInputs, parse venue/cost CSV, คำนวณงบ/ความจุจาก source และคืน choices; ยังไม่ต่อ runner/DB หรือ validate artifact bundle และ task completed ใน CLI ก็ยังไม่ใช่ Mission business checks |
 | Structured decisions | มี native questions | ต้องมีตัวเลือกจาก venues.csv พร้อมราคาผลกระทบ และ operation ที่อัปเดต Mission revision จริง |
 | Durable runner | มี local checkpoint/abort | ต้องมี DB claim/lease/attempt, commit guard, stop_epoch และ bounded retries; process lock เดิมทดแทนไม่ได้ |
 | Approval / publish | มี trust/tool permissions | ต้องสร้าง business approval ผูก exact revision+bundle และ publish transaction; การยอมให้รันเครื่องมือไม่ใช่ยินยอมเปิดรับสมัคร |
@@ -99,6 +99,14 @@ docs/                      Architecture, protocol, images, test evidence
 6. **Local JSON lock ≠ DB transaction:** `src/storage.ts` ล็อก process ต่อ state directory ไม่ได้ serialize publish กับการสมัครที่นั่งสุดท้าย
 
 หลักฐานสำคัญ: `src/schema.ts:9` (profiles), `src/schema.ts:32` (tasks), `src/engine.ts:238` (submit/steering), `src/engine.ts:302` (dispatch/completion), `src/workspace.ts:17` (diff snapshot), `src/storage.ts:13` (lock), `src/protocol.ts:8` (stdio methods)
+
+### ความคืบหน้าฝั่ง Core ใน branch `agent`
+
+- `mission/domain.ts` ตรวจวันที่/เวลา/ผู้เข้าร่วม/งบ/venue ID ด้วย schema; มีวงเงินสูงสุดตัวอย่าง 100,000,000 บาท
+- parser อ่าน CSV ที่มี quoted fields และ UTF-8 size limit; ปฏิเสธ headers, ตัวเลข และ venue/item ซ้ำที่ผิด พร้อมเก็บเลขบรรทัด source
+- `calculateBudgetCapacity` คำนวณจาก venues/costs จริง ให้ checks และตัวเลือกเฉพาะ venue จากไฟล์ต้นทางที่ผ่านเงื่อนไข
+- `planMissionInvalidation` map fields/files ไปยัง task graph คงที่และ downstream tasks ที่ควรทำใหม่
+- helper ยังไม่ต่อ intake LLM/U-Bot, persistent readsets, runner leases, artifact hashes, API/DB หรือ UI decisions; typecheck ผ่านแต่ยังไม่มี automated fixture tests สำหรับโมดูลนี้
 
 ## 4. อะไรควรเก็บ ใช้เป็นแบบอย่าง และพักไว้
 
