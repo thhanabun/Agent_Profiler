@@ -33,10 +33,11 @@ Do not commit to `main` or reuse the UI developer's branch. If the owner has mer
 
 1. Create `server/` and a local host that starts one `subharness serve --stdio` child for a fixed `--cwd` using `spawn()` with an argument array, `shell: false`, and `windowsHide: true`.
 2. Translate the version 1 JSONL requests from [UI_PROTOCOL.md](UI_PROTOCOL.md) to same-origin HTTP routes. Stream state snapshots and operation errors as SSE.
+   Import `parseRequest` and protocol types from `src/contracts.ts`. Correlate requests/responses by ID; `profiles.readiness` can reply after later stop/approval commands. Expose readiness before session creation and preserve its structured checks/actions.
 3. Keep one configured project/state directory per host instance. Handle child exit, EOF, Ctrl+C, startup failure and graceful shutdown without losing the existing session store. Changing projects restarts the host with a new trusted `--cwd`.
 4. Serve the built `web/` output from the same origin in local production mode. Keep the dev server only for development and proxy its API calls to the host.
 5. Bind only to `127.0.0.1`; reject unexpected `Origin`/Host values, require a random per-instance token, limit request sizes, and avoid wildcard CORS. Do not expose the process to LAN or public internet.
-6. Do not accept arbitrary executable paths, shell commands, filesystem paths or credentials from browser requests. The host starts with one trusted `--cwd`; show that project path read-only in the UI. Profile references and session operations must pass through the existing validated protocol.
+6. Do not accept arbitrary executable paths, shell commands, filesystem paths or credentials from browser requests. The host starts with one trusted `--cwd`; show that project path read-only in the UI. Allowlist profile references from `profiles.choices` or trusted startup configuration before forwarding readiness/session creation. `parseRequest()` validates syntax/params, not filesystem authorization.
 7. Stop the active run on browser-host shutdown, wait for the child to flush state, then exit. Existing session behavior and trust prompts must remain intact.
 
 The browser cannot talk to stdio directly. It calls this host; the host manages the CLI child process, while the child uses the native account context on the same machine. Avoid importing runtime modules into browser code and avoid duplicating orchestration logic in HTTP handlers.
@@ -47,6 +48,7 @@ The browser cannot talk to stdio directly. It calls this host; the host manages 
 - The process runs only while the local host is running. Closing the host stops active work; there is no cloud background execution.
 - The local host is trusted code with access to project files and provider sessions. Loopback binding, same-origin serving and per-instance access checks are required.
 - No automatic permission approval. Forward trust/permission/question requests with their exact IDs.
+- Use [protocol fixtures](../fixtures/protocol/README.md) for UI/API development without model usage. They contain synthetic complete views and error/approval examples; the HTTP/SSE transport itself still needs implementation.
 
 ## Hand back
 

@@ -63,6 +63,7 @@ Codex setup and its current plugin/permission limits are documented in [CODEX.md
 The CLI/TUI and JSONL bridge use the same `Engine` and `SessionManager`. The planned browser UI will go through a local Node host that starts the bridge as a child process; it will not import the runtime into the browser or implement orchestration itself.
 
 - `src/core.ts`: importable TypeScript entry point, schemas and types.
+- `src/contracts.ts`: browser-safe request validation, wire types and readiness diagnostics; `fixtures/protocol/` contains synthetic UI examples.
 - `src/application.ts`: profile resolution, session creation and reopening.
 - `src/engine.ts`: orchestration, native runs, requests and checkpoints.
 - `src/protocol.ts`: version 1 JSONL stdio host. See [UI protocol](UI_PROTOCOL.md).

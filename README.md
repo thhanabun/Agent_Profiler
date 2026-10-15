@@ -64,6 +64,7 @@ bin/                 CLI executable
 src/                 SessionManager, Engine, native adapters, TUI and JSONL protocol
 profiles/            Built-in orchestrator and worker profiles
 examples/            Team/profile examples
+fixtures/            Synthetic protocol and screen examples for backend/UI
 test/                Automated fixtures and opt-in live checks
 benchmarks/           Small coding-agent benchmark
 docs/                 Runtime architecture, UI protocol and handoffs
@@ -75,6 +76,8 @@ server/               Planned local Node.js API/host; no HTTP bridge yet
 - [Local host/backend handoff](docs/HANDOFF_BACKEND.md)
 - [Current implementation gaps](docs/PROJECT_GAP_ANALYSIS.md)
 - [System overview](docs/SYSTEM_OVERVIEW.md)
+
+Backend/UI can share browser-safe types and request validation from `src/contracts.ts`. [Protocol fixtures](fixtures/protocol/README.md) provide complete synthetic screens/events without model usage. `profiles.readiness` checks a selected profile before session creation; see [the protocol contract](docs/UI_PROTOCOL.md).
 
 ## Start
 
@@ -213,6 +216,7 @@ npm start -- profiles "responsive"
 npm start -- show ui
 npm start -- init ./my-builder --harness opencode
 npm start -- check ./my-builder
+npm start -- check codex --json
 npm start -- fork ui --to ./.subharness/profiles/my-designer
 npm start -- export ui --out ./designer.agentpack
 npm start -- import ./designer.agentpack --to ./.subharness/profiles/shared-designer

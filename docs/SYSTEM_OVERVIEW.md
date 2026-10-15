@@ -35,6 +35,7 @@ No model credentials, OAuth tokens or provider sessions move into the browser. T
 - `src/engine.ts` plans work, selects workers, executes native harness calls, checkpoints session state and handles stop/retry/steering.
 - `src/application.ts` provides `SessionManager` for profiles and sessions.
 - `src/protocol.ts` implements JSONL stdio v1 for a trusted Node host.
+- `src/contracts.ts` supplies browser-safe protocol types/validation; `profiles.readiness` returns local setup checks before session creation. `fixtures/protocol/` supplies complete synthetic UI examples.
 - `src/ui.tsx` and `src/workspace-ui.tsx` are the current terminal interface.
 - `profiles/`, `.agentpack` bundles and OCI images provide the existing profile and sharing system.
 - The sessions and native run references are local. There is no browser API, remote sync, cloud runner or multi-user account service.
@@ -46,6 +47,7 @@ bin/          CLI executable
 src/          CLI runtime, Engine, SessionManager, adapters, TUI and JSONL protocol
 profiles/     Built-in orchestrator/worker profiles and their skills
 examples/     Team examples
+fixtures/     Browser-safe protocol and screen examples; simulation only
 test/         Automated fixtures and opt-in live checks
 benchmarks/   Small coding-agent benchmark
 docs/         Runtime architecture, UI protocol, setup and handoffs

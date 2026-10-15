@@ -6,9 +6,9 @@ This repository already contains the agent runtime and CLI. The next slice adds 
 
 | Area | Implemented | Missing |
 |---|---|---|
-| Runtime | `src/engine.ts`, profiles, OpenCode/Codex/Claude adapters, local JSON sessions | None for the current CLI flow |
+| Runtime | `src/engine.ts`, profiles, OpenCode/Codex/Claude adapters, local JSON sessions | Remaining platform/live checks are tracked in `TESTING.md` |
 | CLI | `bin/subharness.mjs`, `src/cli.tsx`, Ink workspace and team/session pickers | Keep as the reference client |
-| Host protocol | `src/protocol.ts`, JSONL stdio v1 with request validation and event snapshots | Browser-compatible local HTTP API and event stream |
+| Host protocol | `src/protocol.ts`, shared browser-safe `src/contracts.ts`, JSONL v1, `profiles.readiness`, synthetic screen/event fixtures | Browser-compatible local HTTP API and event stream |
 | Web UI | No current web client | Session/team picker, conversation, task flow, inspector, diffs and trust/permission requests |
 | Backend/persistence | `SessionManager` writes local `.subharness` state | Local host lifecycle, HTTP routing and secure browser-to-host connection |
 | Cloud features | None required for personal local use | Remote accounts, sync and hosted execution are intentionally deferred |

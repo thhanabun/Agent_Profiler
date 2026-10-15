@@ -5,11 +5,23 @@ Environment: Windows, Node.js 26.4.0, OpenCode 1.19.0; dependencies pinned in pa
 ## Automated fixtures
 
 - `npm run typecheck`: passed.
-- `npm test`: 49 tests passed. No model or registry requests.
+- `npm test`: 55 tests passed after the domain scaffold cleanup and readiness/contract work. No model or registry requests.
 - Covers planning/DAG validation, automatic profile selection via fixture, returning to a native session, worker failures, stopping, steering during work/planning, chat without workers, memory/persona, crash checkpoints, known-secret redaction, exact task diffs, bundle integrity/archive attacks, terminal sizing, cursor editing, Thai input and approval forwarding.
 - Added image build determinism (including timezone/input order), immutable tags, base derivation, source/blob integrity, source-only dependency restrictions, catalog search, locked team membership/download reuse, model/platform constraints, direct-image session identity and targeted Windows terminal cleanup retry.
 
 Added Codex protocol fixtures for native resume, skill discovery/injection, streamed text, approval forwarding, planner restrictions, malformed/failed responses, cancellation, executable discovery and Codex image/catalog compatibility.
+
+## Cleanup, shared contracts and profile readiness — 2026-10-16
+
+- Baseline after removing the old domain scaffold: `npm run typecheck` passed; all 49 existing tests passed.
+- After implementation: `npm run typecheck` passed; `npm test` passed **55/55**, including six new contract/readiness tests.
+- Shared request validation rejects unknown method params and malformed session IDs. Synthetic UI fixtures validate against the real session schema and check task/run references, simulation labels, request/response IDs, all session statuses and all three prompt kinds.
+- Readiness fixtures cover missing environment values, native setup, unsupported bundled Codex plugins, incompatible image platforms, missing skill source, model overrides and source paths with spaces. Reports contain required variable names without their values and create no session.
+- A held preflight probe does not block a later approval response or stop command; its response is correlated by ID. A real CLI subprocess running `check --json` returns a structured blocked report and exit code 1 for a missing native executable.
+- Browser bundling smoke check used the installed esbuild with `platform: 'browser'` for `src/contracts.ts` and `fixtures/protocol/examples.ts`. The only project runtime inputs were those two files; no Engine, adapter, filesystem, process or other Node runtime module entered either bundle. This checks the shared boundary, not a completed web app.
+- Actual local CLI checks: `check codex --json` found native Codex login; `check implement --json` found native OpenCode. Both exited 0 and marked provider/model/skill/plugin access **unverified**. These were local setup probes, with no model session or provider request. Prior live model evidence below remains separate.
+
+The local HTTP host and browser UI still need their own integration checks when implemented. This round did not repeat live model calls, registry operations, macOS/Linux checks or interactive native cancellation.
 
 ## Terminal session navigation and benchmark
 
@@ -60,7 +72,7 @@ Installed Codex: `0.162.0-alpha.17.2`; native ChatGPT login, model `gpt-6.1-sol`
 - A separate real session selected the same Codex profile as orchestrator. Native output schema produced summary `CODEX_PLANNER_OK` with no tasks, under read-only planning settings.
 - Built `local/codex:1.0.0` through the CLI and checked the actual image/runtime requirements: digest `sha256:fac6af4a301432b55bc64a887539f5d479e2adcb9aa4a92ac9e379d8ed26e9f4`, CLI `0.162.0-alpha.17.2`, adapter `0.1.0`, Windows/x64. This image build check made no additional model call.
 
-Result: **1 live integration test passed** (separate from the 45 automated fixtures). Artifacts: `.subharness/cross-harness/live-R3JCwi/`; session `4d195542-6122-472b-a685-8088042cb72a`; Codex planner session `8306c3e9-d696-43ca-9cc4-15537e82e40a`. `handoff-result.json`, `events.json`, native references and saved diffs remain available for review. The resulting file contains:
+Result: **1 live integration test passed** (separate from the automated fixtures). Artifacts: `.subharness/cross-harness/live-R3JCwi/`; session `4d195542-6122-472b-a685-8088042cb72a`; Codex planner session `8306c3e9-d696-43ca-9cc4-15537e82e40a`. `handoff-result.json`, `events.json`, native references and saved diffs remain available for review. The resulting file contains:
 
 ```text
 OPENCODE_A

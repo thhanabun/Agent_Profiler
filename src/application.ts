@@ -4,6 +4,8 @@ import { loadProfile, loadProfiles } from './profiles.js';
 import { imageReference, listImages, loadImage } from './images.js';
 import { acquireLock } from './storage.js';
 import { runDemo } from './demo.js';
+import { inspectProfiles, modelFor } from './adapters.js';
+import type { ProfileReadiness, ReadinessCheck } from './contracts.js';
 import type { LoadedProfile } from './schema.js';
 
 export type CreateSession = { title?: string; orchestrator?: string; workers?: string[]; direct?: string };
@@ -19,6 +21,19 @@ export class SessionManager {
     runner?: EngineOptions['runner']; inspect?: EngineOptions['inspect'] }) {}
 
   async profiles(): Promise<LoadedProfile[]> { return loadProfiles(this.options.extraRoot); }
+  async readiness(reference: string): Promise<ProfileReadiness> {
+    let profile: LoadedProfile;
+    try { profile = await this.resolve(reference); }
+    catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return { reference, checkedAt: new Date().toISOString(), available: false, reason,
+        checks: [{ kind: 'source', status: 'blocked', reason, action: 'Repair profile.json and its declared skill/plugin files, or pull/build the referenced image, then check again.' }] };
+    }
+    const result = (await (this.options.inspect ?? inspectProfiles)([profile]))[profile.manifest.id]!;
+    const source: ReadinessCheck = { kind: 'source', status: 'passed', reason: 'Manifest, declared files and source checksum are valid.' };
+    return { ...result, reference, checkedAt: new Date().toISOString(), profileId: profile.manifest.id, harness: profile.manifest.harness,
+      model: modelFor(profile), checksum: profile.checksum, image: profile.image, checks: [source, ...(result.checks ?? [])] };
+  }
   async choices(): Promise<ProfileChoice[]> {
     const choices = (await this.profiles()).map(profile => ({ reference: profile.manifest.id, profile }));
     const release = await acquireLock(this.options.store);
