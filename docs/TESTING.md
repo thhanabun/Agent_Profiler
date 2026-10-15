@@ -5,7 +5,7 @@ Environment: Windows, Node.js 26.4.0, OpenCode 1.19.0; dependencies pinned in pa
 ## Automated fixtures
 
 - `npm run typecheck`: passed.
-- `npm test`: 55 tests passed after the domain scaffold cleanup and readiness/contract work. No model or registry requests.
+- `npm test`: 57 tests passed after cleanup, shared contracts/readiness and recovery work. No model or registry requests.
 - Covers planning/DAG validation, automatic profile selection via fixture, returning to a native session, worker failures, stopping, steering during work/planning, chat without workers, memory/persona, crash checkpoints, known-secret redaction, exact task diffs, bundle integrity/archive attacks, terminal sizing, cursor editing, Thai input and approval forwarding.
 - Added image build determinism (including timezone/input order), immutable tags, base derivation, source/blob integrity, source-only dependency restrictions, catalog search, locked team membership/download reuse, model/platform constraints, direct-image session identity and targeted Windows terminal cleanup retry.
 
@@ -21,7 +21,62 @@ Added Codex protocol fixtures for native resume, skill discovery/injection, stre
 - Browser bundling smoke check used the installed esbuild with `platform: 'browser'` for `src/contracts.ts` and `fixtures/protocol/examples.ts`. The only project runtime inputs were those two files; no Engine, adapter, filesystem, process or other Node runtime module entered either bundle. This checks the shared boundary, not a completed web app.
 - Actual local CLI checks: `check codex --json` found native Codex login; `check implement --json` found native OpenCode. Both exited 0 and marked provider/model/skill/plugin access **unverified**. These were local setup probes, with no model session or provider request. Prior live model evidence below remains separate.
 
-The local HTTP host and browser UI still need their own integration checks when implemented. This round did not repeat live model calls, registry operations, macOS/Linux checks or interactive native cancellation.
+The local HTTP host and browser UI still need their own integration checks when implemented. The shared-contract/readiness work above made no model calls; the subsequent Windows live checks below are separate runs.
+
+## Windows native cancellation — 2026-10-16: passed
+
+`test/cancellation.live.ts` passed **4/4 real worker/model checks**, separate from the 55 automated fixtures. OpenCode used CLI/SDK 1.19.0 and `opencode/muse-spark-1.3-contributor-free`; Codex used CLI 0.162.0-alpha.17.2, adapter 0.1.0 and `gpt-6.1-sol`. Each case starts with a deterministic two-task plan and a fresh fixture profile/project path containing spaces. The worker/model invocation is real; the planner is not called.
+
+| Harness | Stop trigger | Stop → settled/persisted state | Local evidence directory |
+|---|---|---|---|
+| OpenCode | First real streamed text | 946 ms | `.subharness/cancellation/opencode-streaming-XFgRnG/` |
+| OpenCode | Native permission pending | 928 ms | `.subharness/cancellation/opencode-permission-E7iE3m/` |
+| Codex | First real streamed text | 371 ms | `.subharness/cancellation/codex-streaming-MD546F/` |
+| Codex | Native permission pending | 957 ms | `.subharness/cancellation/codex-permission-wXTEIt/` |
+
+All cases recorded the current task/run as stopped, kept the dependent task pending, started exactly one native invocation, retained the native session ID and saved matching statuses to disk. Native child exit was observed before `Engine.resume()` settled; probing each PID returned `ESRCH`. Streaming cases preserved partial output; permission cases cleared the request and rejected an attempted response using its old ID. No tool request was approved and no project files changed. OpenCode exited with code 1 after termination; Codex exited with code 0. The app correctly marked both as stopped based on the cancellation signal.
+
+These are one trial per case, not a latency benchmark. `result.json` in each local directory contains runtime/model metadata, timings, exit/PID evidence, tasks/runs and captured events; artifacts are ignored local data and are not included in a fresh clone. Repeat instructions are in [CODEX.md](CODEX.md).
+
+The initial sandboxed attempt failed at native startup because user-home logs/SQLite state were not writable; none reached a model cancellation point. The passing run used normal native user-home permissions while keeping project fixtures under the repository. Typecheck and all 55 automated tests also passed after the test hook was added to OpenCode's launcher. Additional Windows coverage follows below; macOS/Linux remain unverified.
+
+## Running tools, real Ctrl+C and hard-crash recovery — passed
+
+The additional native cases below passed on Windows with the same runtime/models listed above. Typecheck and **57/57 automated tests** passed, including a real child-process hard kill/stale-lock recovery fixture and a regression ensuring superseded historical failures do not block future work.
+
+| Case | Result | Local evidence |
+|---|---|---|
+| OpenCode approved sleeping tool + its child | Stopped in 517 ms; native, tool and child PIDs all gone; dependent pending | `.subharness/cancellation/opencode-tool-B6kVIL/` |
+| Codex approved sleeping tool + its child | Stopped in 267 ms; native, tool and child PIDs all gone; dependent pending | `.subharness/cancellation/codex-tool-NRgdRk/` |
+| OpenCode actual TUI Ctrl+C while streaming | First key stopped; CLI stayed open with no native children; second key exited 0 and released lock | `.subharness/terminal/opencode-7LPQk3/` |
+| Codex actual TUI Ctrl+C while streaming | First key stopped; recorded native PID gone; second key exited 0 and released lock | `.subharness/terminal/codex-HUCl5o/` |
+| OpenCode CLI hard kill → reopen → retry | Passed; checkpoint restored, no work on open, native ID reused for retry/dependent, completed prerequisite preserved | `.subharness/recovery/opencode-Lecz5o/` |
+| Codex CLI hard kill → reopen → retry | Passed; checkpoint restored, no work on open, native ID reused for retry/dependent, completed prerequisite preserved | `.subharness/recovery/codex-lbhiMf/` |
+
+Tool cases approve only the exact fixture command `node long-tool.cjs`. The script writes `tool-started.json`, starts one sleeping child and would write a failure marker after 60 seconds; both processes are verified gone before returning. Fixture setup now initializes an independent Git root and includes OpenCode's `$schema`: earlier test assertions exposed inherited parent ignore rules and native schema insertion, rather than a cancellation failure. No broad permission is granted.
+
+TUI checks used actual ConPTY input, not a synthesized SIGINT signal. The helper creates a seeded two-task session and exact source trust; `/resume` begins the live worker, then byte Ctrl+C is sent after checkpointed streamed text is observed. Windows process queries and saved session data verify shutdown. `before.json`/`result.json` and saved sessions remain in the local directories. OpenCode's initial pre-stop CIM query was sandbox-blocked, so its evidence uses a post-stop query for children of the still-live CLI; Codex also verifies its pre-recorded native PID disappeared. Both exited with code 0 on the second Ctrl+C.
+
+The opt-in recovery suite kills the actual `serve --stdio` CLI process without graceful shutdown after a real partial-output checkpoint. Observed child processes exit before reopening. A stale lock is reclaimed, `session.open` returns stopped with retry guidance and no new run, and plain resume is rejected. Explicit retry creates one new attempt plus the dependent task, all using the original native ID. The seeded completed prerequisite, its file and prior diff remain unchanged; the recovered partial-output message appears once. No live planner call is used. Native checkpoint/model calls are real; artifact paths are local/ignored rather than files shipped in a clone.
+
+[Stop/recovery instructions](RECOVERY.md) and [repeat commands](CODEX.md). These checks do not establish exactly-once external effects or recovery after machine power loss. Text after the last completed checkpoint can be lost; users must review files before retrying. Live macOS/Linux, Claude and browser integration remain outside this evidence.
+
+## Pre-push verification — 2026-10-16
+
+Repeated `npm run typecheck` and `npm test`: passed, **57/57** automated tests with no skips. CLI `--help` also exited successfully. Repeated both live suites together with `--test-concurrency=1`: **8/8 passed**, no skips, covering six cancellation cases and two hard-crash/retry cases. Actual ConPTY Ctrl+C was not repeated; its earlier evidence above still applies.
+
+| Live case | New local evidence directory |
+|---|---|
+| OpenCode streaming | `.subharness/cancellation/opencode-streaming-UC5dxV/` |
+| OpenCode permission | `.subharness/cancellation/opencode-permission-XK1nZa/` |
+| OpenCode running tool | `.subharness/cancellation/opencode-tool-1aR6Dx/` |
+| Codex streaming | `.subharness/cancellation/codex-streaming-QEZ9v4/` |
+| Codex permission | `.subharness/cancellation/codex-permission-MLINPU/` |
+| Codex running tool | `.subharness/cancellation/codex-tool-tIS6Xa/` |
+| OpenCode hard crash and retry | `.subharness/recovery/opencode-L3jf6G/` |
+| Codex hard crash and retry | `.subharness/recovery/codex-dZGvsr/` |
+
+These are ignored local artifacts, not files distributed by Git. Platform and recovery limits above remain unchanged.
 
 ## Terminal session navigation and benchmark
 
@@ -83,7 +138,7 @@ CODEX_D
 
 Earlier attempts correctly stopped when the test declined a native read/write approval. That exposed two integration details: Windows command display uses shell-escaped text, so the fixture now validates the native parsed read action and exact path; file approval requests contain an item ID while proposed changes arrive in an item event, so the adapter now joins them and presents actual paths/diffs before asking. Missing diffs fail closed. The fixture approves only its exact file read/update, with no persistent prefix rule or broad filesystem/network grant.
 
-Repeat using the opt-in command in [CODEX.md](CODEX.md). It consumes model usage and retains artifacts. Native execution needed access outside the workspace sandbox for the runtimes' own logs/session state. macOS/Linux and real interactive cancellation of the Codex adapter have not been checked; cancellation has automated protocol coverage. Packaged Codex plugins remain explicitly unsupported.
+Repeat using the opt-in command in [CODEX.md](CODEX.md). It consumes model usage and retains artifacts. Native execution needed access outside the workspace sandbox for the runtimes' own logs/session state. Windows cancellation, actual TUI Ctrl+C and recovery now have the separate evidence above; macOS/Linux remain unchecked. Packaged Codex plugins remain explicitly unsupported.
 
 ## Real provider calls
 

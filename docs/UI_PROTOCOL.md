@@ -106,6 +106,8 @@ Snapshots are coalesced around 50 ms and may skip intermediate output under back
 
 Submit/retry/resume are asynchronous: acceptance means the operation was scheduled. Observe subsequent state for completion/failure; wait for `busy:false`. Model/task failures appear in `state.error` and run/task status. Errors thrown outside normal engine execution emit `{version:1,event:"operation.error",sessionId,error}`. Stop remains responsive while a native call is pending. Submitting during work queues steering for the next task boundary.
 
+After a crash, `session.open` marks interrupted runs/tasks stopped and returns `status: stopped` with guidance in `error`. It restores checkpointed partial output/native references without executing work. Require an explicit `session.retry` for stopped/failed tasks; `session.resume` refuses to skip them and emits `operation.error` after acceptance. A new `session.submit` supersedes old unfinished tasks and retains their previous errors. [Recovery semantics and limits](RECOVERY.md).
+
 ## Trust, permissions and questions
 
 When `state.request` exists, display its `id`, `kind`, `title`, `detail`. `trust`/`permission` accept `yes` or `no`; `question` accepts text. Reply with the exact active request ID:

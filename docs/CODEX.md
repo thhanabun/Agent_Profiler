@@ -62,3 +62,24 @@ node --import tsx --test test/cross-harness.live.ts
 ```
 
 It creates isolated profiles and a project path containing spaces, grants trust only for those fixture sources, and approves only a narrowly matched native read action or proposed update of the exact fixture file. Other prompted actions are denied; native policy can independently allow ordinary workspace operations. It asserts exact file contents, worker order, handoff skill loading, native session reuse after reopening, and a separate Codex planning call. See [test results](TESTING.md) for actual outcomes and platform limits.
+
+## Repeat native cancellation checks
+
+```powershell
+$env:SUBHARNESS_TEST_CANCEL_LIVE = '1'
+# The same optional SUBHARNESS_TEST_OPENCODE_MODEL / SUBHARNESS_TEST_CODEX_MODEL overrides apply.
+node --import tsx --test test/cancellation.live.ts
+```
+
+This opt-in suite has six real worker/model cases: OpenCode and Codex, each stopped during text streaming, while a native permission request is pending, and during an approved long-running fixture tool. Each starts from a deterministic saved two-task plan, so it tests worker cancellation rather than model planning. It trusts only its generated fixture profile. The tool case approves only the parsed exact command `node long-tool.cjs`, which writes a local PID marker and starts a sleeping child. Other tool requests are stopped without approval.
+
+The suite calls the same `Engine.stop()` used by JSONL/TUI controls, checks native/fixture descendant PID disappearance before the engine becomes idle, validates saved stopped/pending task statuses and rejects stale approval responses. It retains `result.json`, events and session state under `.subharness/cancellation/`. Fixtures initialize a separate Git root so parent ignore rules cannot hide their changes; OpenCode config includes its schema to avoid native startup edits. Native runtimes need their normal user-home log/state write permissions; a sandbox that blocks them cannot run the live suite. See [TESTING.md](TESTING.md) for the observed results.
+
+To repeat a manual TUI Ctrl+C check, prepare a known isolated session, launch it in an actual terminal, send `/resume`, wait for streamed text, press Ctrl+C once to stop and once more after idle to exit:
+
+```powershell
+$terminalFixture = node --import tsx test/fixtures/terminal-prepare.ts codex | ConvertFrom-Json
+node bin/subharness.mjs run --resume $terminalFixture.sessionId --cwd $terminalFixture.cwd --state-dir $terminalFixture.stateRoot --store $terminalFixture.store --profiles $terminalFixture.profiles
+```
+
+Use `opencode` instead of `codex` for the other adapter. This helper trusts only the generated fixture source and does not start a model until `/resume`. Actual Windows ConPTY checks for both adapters are recorded in TESTING.md. For hard-kill/reopen/retry checks, see [RECOVERY.md](RECOVERY.md).

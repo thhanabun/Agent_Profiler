@@ -87,11 +87,16 @@ export class Engine extends EventEmitter {
       })).sort((a, b) => a.id.localeCompare(b.id)) });
     if (session.configuration && JSON.stringify(session.configuration) !== JSON.stringify(configuration)) throw new Error('Session profiles, models or role assignments changed. Restore the saved configuration or start a new session.');
     session.configuration = configuration;
+    const interrupted = session.runs.some(run => run.status === 'running') || Boolean(session.inFlight) || session.tasks.some(task => task.status === 'running');
     for (const task of session.tasks) if (task.status === 'running') { task.status = 'stopped'; task.error = 'Previous process ended. Review current files before retrying.'; }
     if (session.inFlight?.text) session.messages.push({ id: randomUUID(), role: 'system', text: `Recovered partial output (interrupted):\n${session.inFlight.text}`, profileId: session.inFlight.profileId, taskId: session.inFlight.taskId, time: new Date().toISOString() });
     session.inFlight = undefined;
     for (const run of session.runs) if (run.status === 'running') { run.status = 'stopped'; run.endedAt = new Date().toISOString(); run.error = 'Previous process ended.'; }
-    this.view = { session, busy: false, paused: false, phase: 'Ready', status: 'idle', output: '', availability: {} };
+    const unfinished = session.tasks.find(task => ['stopped', 'failed'].includes(task.status) && !task.error?.startsWith('Superseded'));
+    const recovery = unfinished ? `Review current files, then use /retry ${unfinished.id} to continue. Completed work will not repeat.`
+      : interrupted || (session.needsPlan && session.runs.some(run => run.status === 'stopped')) ? 'Previous planning was interrupted. Review the session, then use /resume to plan again.' : undefined;
+    this.view = { session, busy: false, paused: false, phase: recovery ? 'Recovered session needs attention' : 'Ready', status: recovery ? 'stopped' : 'idle',
+      output: '', availability: {}, ...(recovery ? { error: recovery } : {}) };
   }
 
   get state(): View { return this.view; }
@@ -235,6 +240,13 @@ export class Engine extends EventEmitter {
     }
   }
 
+  private supersedeUnfinished(): void {
+    for (const task of this.view.session.tasks) if (['pending', 'failed', 'stopped'].includes(task.status) && !task.error?.startsWith('Superseded')) {
+      const previousError = task.error;
+      task.status = 'stopped'; task.error = `Superseded by new direction.${previousError ? ` Previous error: ${previousError}` : ''}`;
+    }
+  }
+
   async submit(text: string): Promise<void> {
     const goal = text.trim();
     if (!goal) return;
@@ -247,7 +259,7 @@ export class Engine extends EventEmitter {
       await this.save();
       return;
     }
-    for (const task of this.view.session.tasks) if (task.status === 'pending') { task.status = 'stopped'; task.error = 'Superseded by new direction.'; }
+    this.supersedeUnfinished();
     this.view.session.steering = [];
     this.view.paused = false;
     this.view.session.goal = goal;
@@ -315,7 +327,7 @@ export class Engine extends EventEmitter {
         signal.throwIfAborted();
         if (this.view.session.steering.length) {
           this.view.session.goal += `\n\nAdditional direction:\n${this.view.session.steering.splice(0).join('\n')}`;
-          for (const task of this.view.session.tasks) if (task.status === 'pending') { task.status = 'stopped'; task.error = 'Superseded by new direction.'; }
+          this.supersedeUnfinished();
           if (!await this.plan(signal) && !this.view.session.steering.length) { this.view.phase = 'Ready for your next message'; return; }
           continue;
         }
@@ -390,7 +402,12 @@ export class Engine extends EventEmitter {
 
   pause(): void { this.view.paused = true; if (!this.view.busy) this.view.status = 'paused'; this.message('system', 'Will pause after the active task finishes.'); }
   stop(): void { if (this.controller) { this.view.status = 'stopping'; this.controller.abort(); this.notify(); } }
-  async resume(): Promise<void> { if (this.view.busy) return; this.view.paused = false; await this.drive(this.view.session.needsPlan); }
+  async resume(): Promise<void> {
+    if (this.view.busy) return;
+    const unfinished = this.view.session.tasks.find(task => ['failed', 'stopped'].includes(task.status) && !task.error?.startsWith('Superseded'));
+    if (unfinished) throw new Error(`Review current files, then use /retry ${unfinished.id}. Resume does not skip stopped or failed work.`);
+    this.view.paused = false; await this.drive(this.view.session.needsPlan);
+  }
   async retry(taskId?: string): Promise<void> {
     if (this.view.busy) throw new Error('Stop the active task before retrying.');
     if (!taskId && this.view.session.needsPlan) { this.view.paused = false; await this.drive(true); return; }

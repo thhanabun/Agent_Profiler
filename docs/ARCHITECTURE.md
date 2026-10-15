@@ -54,6 +54,8 @@ Sessions retain title, timestamps, conversation, DAG tasks, steering, diffs, nat
 
 Each run has an ID, role, harness/model, optional task ID, timestamps, native session ID and status (`running`, `completed`, `failed`, `stopped`). Completed means the native invocation returned; task validation and delivery status are separate. Crash recovery marks unfinished runs/tasks stopped. Full output remains in conversation/task records rather than duplicated in each run.
 
+Reopening unfinished work returns `status: stopped` with retry guidance and starts no model turn. `resume()` refuses to skip stopped/failed tasks; explicit `retry(taskId)` preserves completed work and creates a new run attempt with the existing native session reference. New user direction supersedes old unfinished tasks while retaining their failure details. See [Stop and recovery](RECOVERY.md) for checkpoints, file-review steps and live evidence.
+
 TUI additions: `/new [title]`, `/team`, `/sessions`, `/rename <title>`, `/runs`; `/profiles` shows the **session role**. `sessions --json`, `profiles --json`, and `session show <id>` support inspection. `session rename <id> --title "Name"` updates a saved session. Add `--demo` when inspecting/resuming a simulated session.
 
 Codex setup and its current plugin/permission limits are documented in [CODEX.md](CODEX.md).

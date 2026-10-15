@@ -58,7 +58,7 @@ export async function findOpenCode(): Promise<string> {
 }
 
 
-export async function runOpenCode(input: RunInput): Promise<RunResult> {
+export async function runOpenCode(input: RunInput, launch: typeof spawn = spawn): Promise<RunResult> {
   input.signal.throwIfAborted();
   const { root, skillPlugin } = await stageProfile(input.profile, input.stateRoot);
   input.signal.throwIfAborted();
@@ -80,7 +80,7 @@ export async function runOpenCode(input: RunInput): Promise<RunResult> {
     OPENCODE_SERVER_PASSWORD: password, OPENCODE_SERVER_USERNAME: 'subharness' };
   const executable = await findOpenCode();
   input.signal.throwIfAborted();
-  const child = spawn(executable, ['serve', '--hostname=127.0.0.1', '--port=0'], {
+  const child = launch(executable, ['serve', '--hostname=127.0.0.1', '--port=0'], {
     cwd: input.cwd, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32', shell: false,
   });
   const stop = () => { void stopProcess(child); };

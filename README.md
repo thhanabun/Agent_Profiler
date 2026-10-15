@@ -19,7 +19,7 @@ Running `npm start -- run` opens a team picker when no profile selectors/resume/
 - `/sessions` — choose a saved chat for this project and mode.
 - Esc cancels/backtracks; the current chat stays saved. A cancelled startup creates no empty session.
 
-Opening a saved chat does not execute work automatically. Send `/resume` or a new message to continue. Stop active work and wait before switching sessions. A session retains its team; changing teams starts a separate session. The picker displays each profile's harness/model, source and skill/plugin counts. Saved simulation/live histories remain separate.
+Opening a saved chat does not execute work automatically. Use `/resume` for pending work or `/retry <task-id>` for stopped/failed work after reviewing current files. A new message creates a new direction. Stop active work and wait before switching sessions. A session retains its team; changing teams starts a separate session. The picker displays each profile's harness/model, source and skill/plugin counts. Saved simulation/live histories remain separate. [Stop and recovery guide](docs/RECOVERY.md).
 
 ## OpenCode + Codex
 

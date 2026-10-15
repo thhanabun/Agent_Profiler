@@ -35,6 +35,7 @@ Use the latest `agent` branch so the current runtime contract is available. If t
 3. Build the workspace with the existing three-pane concept: task/flow list, conversation, and profile/run/file-diff inspector. Make it responsive without hiding active controls.
 4. Render `session.state` snapshots as replaceable state, not appended output. Subscribe to the host event stream and reconnect after network interruption.
 5. Implement stop, pause, resume, retry and assign actions using the selected session/task IDs.
+   Opening an interrupted session returns stopped/error guidance; show it and offer explicit Retry. Resume cannot skip stopped/failed tasks. Do not execute work automatically on open; see [RECOVERY.md](RECOVERY.md).
 6. Render trust, tool permission and question requests. Require an explicit response to the matching request ID; never auto-approve.
 7. Show demo/simulation as clearly labelled, separate from live sessions. Do not invent progress percentages or success states.
 8. Keep focus visible, label form controls, support keyboard navigation, and announce changing task/request status to assistive technology.
