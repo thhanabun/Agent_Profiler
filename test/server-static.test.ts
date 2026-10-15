@@ -97,7 +97,7 @@ test('SPA fallback requires extensionless HTML navigation and respects unaccepta
 test('missing build or index returns an actionable 503 without a HEAD body', { timeout: 15000 }, async () => {
   await fixture(async port => {
     const response = await http(port, '/');
-    assert.equal(response.status, 503); assert.match(response.body, /npm --prefix web run build/);
+    assert.equal(response.status, 503); assert.match(response.body, /npm run web:build/);
     const head = await http(port, '/', 'HEAD');
     assert.equal(head.status, 503); assert.equal(head.body, '');
   }, false);
