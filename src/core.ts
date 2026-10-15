@@ -1,4 +1,4 @@
-// UI hosts use this module without importing React/Ink or the executable entry point.
+// Programmatic Node clients use this module without importing React/Ink or CLI startup code.
 export { SessionManager, type CreateSession, type ProfileChoice } from './application.js';
 export { Engine, sessionSchema, configurationSchema, runSchema, type Session, type View, type Run, type PendingRequest } from './engine.js';
 export { profileSchema, type Profile, type LoadedProfile } from './schema.js';

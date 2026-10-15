@@ -1,5 +1,7 @@
 # Profiles, sessions and native runs
 
+This document describes the current Subharness runtime. For the planned web client and local Node host, see [system overview](SYSTEM_OVERVIEW.md) and the [UI protocol](UI_PROTOCOL.md).
+
 An **Agent Profile** describes one harness, model, instructions, skills and plugins. An **image** distributes a profile with its source checksum and native runtime requirements. A **session** selects the profiles and assigns their roles. A **run** records one native harness invocation, including planner calls and retry attempts.
 
 ```mermaid
@@ -58,7 +60,7 @@ Codex setup and its current plugin/permission limits are documented in [CODEX.md
 
 ## UI handoff
 
-The terminal, future UI and tests share `Engine` and `SessionManager`. No orchestration logic lives in React/Ink.
+The CLI/TUI and JSONL bridge use the same `Engine` and `SessionManager`. The planned browser UI will go through a local Node host that starts the bridge as a child process; it will not import the runtime into the browser or implement orchestration itself.
 
 - `src/core.ts`: importable TypeScript entry point, schemas and types.
 - `src/application.ts`: profile resolution, session creation and reopening.
@@ -67,6 +69,6 @@ The terminal, future UI and tests share `Engine` and `SessionManager`. No orches
 - `src/workspace-ui.tsx`: team/session pickers and frontend session switching.
 - `src/ui.tsx`: current three-pane terminal conversation.
 
-An embedded Node host must hold `acquireLock(stateRoot)` for its manager's lifetime, call `manager.shutdown()` before release (it waits for an in-flight session transition and flushes the active engine), and explicitly handle trust/tool requests. The CLI and stdio host already do this. Run one host for a project/state directory. Concurrent independent instances using different state roots can still edit the same project.
+The CLI owns the state lock and `SessionManager` lifecycle for both TUI and stdio modes. A future HTTP host should spawn `serve --stdio`, forward explicit trust/tool requests, and wait for the child to stop and flush before exiting. Run one host per fixed project/state directory; separate state directories can still point at the same project and edit it concurrently.
 
-MVP limits: three adapters (OpenCode, Codex and Claude), local sessions, sequential workers, one active session per host. No web frontend, remote daemon, recursive orchestration or process/container sandbox is included.
+Current limits: three adapters (OpenCode, Codex and Claude), local JSON sessions, sequential workers, one active session per bridge, and no browser-facing local HTTP API. The next web slice is a static client plus a local HTTP host that translates to the existing JSONL bridge.

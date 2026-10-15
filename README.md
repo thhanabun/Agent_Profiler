@@ -1,4 +1,8 @@
-# Subharness CLI
+# Subharness
+
+Subharness is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. The planned web UI is another client for the same runtime, with a small local Node.js host between the browser and native harnesses. See [system overview](docs/SYSTEM_OVERVIEW.md) for what exists and what remains.
+
+## Subharness CLI
 
 A terminal workspace where an AI orchestrator breaks down a request, chooses specialist profiles, and runs their **native coding harnesses** in one shared project. Each profile belongs to one harness. Builder can hand work to Designer, then resume with the Designer's delivery in the same visible conversation.
 
@@ -41,22 +45,36 @@ node bin/subharness.mjs demo --orchestrator ui --worker implement
 
 Use `/profiles` for the selected roles, `/runs` for native invocation history and `/rename <title>` to name a session. Profiles/images/models are recorded with the session and restored automatically on resume. [Architecture and session commands](docs/ARCHITECTURE.md) · [UI integration contract](docs/UI_PROTOCOL.md).
 
-For your UI developer: `node bin/subharness.mjs serve --stdio --cwd /path/to/project` exposes the same engine through JSONL. The current frontend stays in the terminal.
-
-## Mission OS handoff templates
-
-The separate Mission scaffold lives in `mission/`, `web/`, `supabase/` and `fixtures/workshop/`. `mission/agent.ts` provides provider-neutral intake and workshop-planning flows; `mission/artifacts.ts` validates source citations, output schemas, budget arithmetic, agenda timing, and event facts. Model-provider adapters and persistence are not connected yet. U-Bot is out of scope because no service/API is available. The browser preview uses visibly labelled sample data; API methods fail explicitly until implemented. Supabase migrations/functions are templates, not an applied or deployed backend.
+The existing Node bridge is available to a trusted local host:
 
 ```sh
-npm run web:build
-npm run web:serve
+node bin/subharness.mjs serve --stdio --cwd /path/to/project
 ```
 
-Open `http://127.0.0.1:5173`. This is a static preview without hot reload; rebuild after TypeScript changes. `npm run typecheck:mission` checks the shared/browser types separately, not SQL or Deno functions. No extra dependencies were added.
+Browsers cannot launch or speak to a child process's stdio directly. The planned local Node host will start the existing CLI JSONL bridge as a child process and translate between browser HTTP/events and that bridge. The CLI child owns `SessionManager` and `Engine`; the host must not reimplement orchestration or expose the trusted bridge to the network.
 
-- [UX/UI developer handoff](docs/HANDOFF_UX_UI.md)
-- [Backend/API and database handoff](docs/HANDOFF_BACKEND.md) — local development first; deployment deferred.
-- [Plan vs current implementation](docs/PROJECT_GAP_ANALYSIS.md)
+## Web UI and local backend (planned)
+
+The first UI slice is local-first: a React + TypeScript + Vite + Tailwind web client, served by a Node.js 24+ TypeScript host. The host serves the UI and translates browser requests/events; the CLI child owns `SessionManager`/`Engine`, native harness execution and the existing `.subharness` local state. No cloud login, remote database or hosted runner is required for this personal-use slice.
+
+Current repository layout and planned additions:
+
+```text
+bin/                 CLI executable
+src/                 SessionManager, Engine, native adapters, TUI and JSONL protocol
+profiles/            Built-in orchestrator and worker profiles
+examples/            Team/profile examples
+test/                Automated fixtures and opt-in live checks
+benchmarks/           Small coding-agent benchmark
+docs/                 Runtime architecture, UI protocol and handoffs
+web/                 Planned React web client
+server/               Planned local Node.js API/host; no HTTP bridge yet
+```
+
+- [Web UI handoff](docs/HANDOFF_UX_UI.md)
+- [Local host/backend handoff](docs/HANDOFF_BACKEND.md)
+- [Current implementation gaps](docs/PROJECT_GAP_ANALYSIS.md)
+- [System overview](docs/SYSTEM_OVERVIEW.md)
 
 ## Start
 
@@ -221,7 +239,7 @@ The first live launch requires trust by checksum and shows source, skills and pl
 
 ## Implementation and scope
 
-TypeScript + React/Ink TUI; OpenCode SDK/server; native Codex app-server; official Claude Agent SDK; local JSON sessions; ZIP profile bundles. No web server or browser UI is required. The OpenCode server binds loopback with an ephemeral password. The runner preserves native project configuration; OpenCode merges config layers rather than creating a security sandbox.
+TypeScript + React/Ink TUI; OpenCode SDK/server; native Codex app-server; official Claude Agent SDK; local JSON sessions; ZIP profile bundles. The web client and local HTTP host are planned, not implemented. The OpenCode server binds loopback with an ephemeral password. The runner preserves native project configuration; OpenCode merges config layers rather than creating a security sandbox.
 
 This slice implements three harness adapters (OpenCode, Codex and Claude), local source sharing, OCI image build/derive/inspect/diff/run, ORAS-backed push/pull, catalog discovery and locked teams. A hosted public catalog/account service, managed harness installation, external dependency resolution, a Pi adapter, parallel worktrees and background scheduling are not implemented. Install native harnesses separately; locked images check their exact runtime/adapter SDK versions and build platform. Windows OpenCode/Codex execution and a team downloaded from a real local OCI registry have passed. Claude's live call was blocked by expired native OAuth. See [test results](docs/TESTING.md); macOS/Linux and hosted registry authentication still need live checks.
 
