@@ -25,7 +25,7 @@ async function fixture(work: (host: Host, root: string) => Promise<void>) {
   }
 }
 
-function http(host: Host, route: string, body?: string, headers: Record<string, string> = {}) {
+function http(host: Host, route: string, body?: string | Buffer, headers: Record<string, string> = {}) {
   return new Promise<{ status: number; body: string; headers: import('node:http').IncomingHttpHeaders }>((resolve, reject) => {
     const req = request(new URL(route, host.url), {
       method: body === undefined ? 'GET' : 'POST', timeout: 10000,
@@ -116,6 +116,34 @@ test('static navigation needs no token while API routes remain private', { timeo
   for (const route of ['/api/host', '/api/events', '/api/missing'])
     assert.equal((await http(host, route, undefined, { authorization: '' })).status, 401);
   assert.equal((await http(host, '/api/missing', undefined, { accept: 'text/html' })).status, 404);
+}));
+
+test('loopback guards reject browser bypasses and bound authenticated SSE clients', { timeout: 30000 }, () => fixture(async host => {
+  const route = '/api/session.list', body = envelope('session.list');
+  const port = new URL(host.url).port;
+  const rejectedHeaders: Record<string, string>[] = [
+    { host: `localhost:${port}` }, { host: '127.0.0.1:1' },
+    { origin: `http://localhost:${port}` }, { origin: host.url + '/' },
+    { 'sec-fetch-site': 'cross-site' }, { 'sec-fetch-site': 'same-site' },
+  ];
+  for (const headers of rejectedHeaders) {
+    const denied = await http(host, route, body, headers);
+    assert.equal(denied.status, 403);
+    assert.equal(denied.headers['access-control-allow-origin'], undefined);
+  }
+  for (const site of ['same-origin', 'none'])
+    assert.equal((await http(host, route, body, { origin: host.url, 'sec-fetch-site': site })).status, 200);
+  assert.equal((await http(host, `/api/host?token=${host.token}`, undefined, { authorization: '' })).status, 401);
+  assert.equal((await http(host, route, Buffer.from([0xc3, 0x28]))).status, 400);
+  const allowed = await http(host, route, body, { 'x-forwarded-host': 'attacker.example' });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers['access-control-allow-origin'], undefined);
+  const streams: Awaited<ReturnType<typeof events>>[] = [];
+  try {
+    for (let count = 0; count < 16; count++) streams.push(await events(host));
+    assert.equal((await http(host, '/api/events')).status, 429);
+    assert.deepEqual((await post(host, 'session.list')).result, []);
+  } finally { await Promise.all(streams.map(stream => stream.close())); }
 }));
 
 test('SSE relays demo state and errors, replays latest state, and retains local sessions', { timeout: 30000 }, () => fixture(async (host, root) => {

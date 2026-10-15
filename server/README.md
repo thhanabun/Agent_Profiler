@@ -1,6 +1,6 @@
 # Local Subharness host
 
-Steps 1–4 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
+Steps 1–5 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
 
 The default command starts HTTP instead of the Step-1 terminal JSONL passthrough. It serves a frontend build from the repository's fixed `web/dist` directory. The frontend itself is not present yet, so static page requests currently return HTTP 503 with build guidance.
 
@@ -136,6 +136,9 @@ Negative checks:
 |---|---|
 | Omit the Authorization header | HTTP 401. |
 | Send `Origin: https://example.com` or `Origin: null` | HTTP 403. |
+| Use `Host: localhost:5174`, a different port, or `Sec-Fetch-Site: cross-site` | HTTP 403; only the printed loopback origin is accepted. |
+| Put the token in the URL without an Authorization header | HTTP 401; the URL does not authenticate a request. |
+| Open a seventeenth authenticated event stream | HTTP 429; normal API requests remain available. |
 | Send malformed JSON or mismatching URL/body methods | HTTP 400. |
 | Send more than the JSONL byte limit | HTTP 413. |
 | Supply an arbitrary directory as `params.direct` | HTTP 403; no session is created. |
