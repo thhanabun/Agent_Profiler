@@ -6,9 +6,9 @@ This repository contains the agent runtime, CLI and local Node HTTP/SSE host. Th
 
 | Area | Implemented | Missing |
 |---|---|---|
-| Runtime | `src/engine.ts`, profiles, OpenCode/Codex/Claude adapters, local JSON sessions | None for the current CLI flow |
+| Runtime | `src/engine.ts`, profiles, OpenCode/Codex/Claude adapters, local JSON sessions | Remaining platform/live checks are tracked in `TESTING.md` |
 | CLI | `bin/subharness.mjs`, `src/cli.tsx`, Ink workspace and team/session pickers | Keep as the reference client |
-| Host protocol | JSONL stdio v1 plus `server/` HTTP routes and SSE state/error events | Browser client integration |
+| Host protocol | Shared browser-safe `src/contracts.ts`, JSONL v1, `profiles.readiness`, synthetic fixtures and `server/` HTTP/SSE | Browser client integration |
 | Web UI | No current web client | Session/team picker, conversation, task flow, inspector, diffs and trust/permission requests |
 | Backend/persistence | One CLI child for fixed project/state directories; local persistence, shutdown, loopback/token checks and fixed `web/dist` static adapter | Frontend/build absent; full browser, Vite proxy and live provider execution through HTTP unverified |
 | Cloud features | None required for personal local use | Remote accounts, sync and hosted execution are intentionally deferred |

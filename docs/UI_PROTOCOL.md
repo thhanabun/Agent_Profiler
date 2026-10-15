@@ -14,6 +14,23 @@ Use an argument array for paths with spaces. Add `--demo` for explicit offline s
 
 Write one UTF-8 JSON object plus newline to stdin. Parse stdout as **newline-delimited JSON**, not one document. Read stderr separately for diagnostics. Keep stdin open while the user works: EOF stops the active run, flushes state and exits. SIGINT/SIGTERM also stop/flush. No TCP listener is opened.
 
+## Shared contracts and offline fixtures
+
+`src/contracts.ts` is the browser-safe entry point for `ProtocolRequest`, `ProtocolResponse`, `ProtocolResults`, `ProtocolEvent`, `ProtocolMessage`, `View` and readiness types. Its runtime dependency is Zod; imports of runtime session types are type-only. Do not import the Node entry point `src/core.ts` into a browser bundle.
+
+```ts
+import { parseRequest, type ProtocolRequest, type ProtocolResponse } from '../src/contracts.js';
+const request = {
+  version: 1, id: 'setup-1', method: 'profiles.readiness', params: { reference: 'codex' },
+} satisfies ProtocolRequest;
+parseRequest(request); // validates envelope AND method-specific params
+type SetupResponse = ProtocolResponse<'profiles.readiness'>;
+```
+
+`methodSchemas` exports the params schemas; `requestSchema` validates only the envelope. Use `parseRequest()` for complete request validation. Keep `params: {}` on parameterless methods. Responses carry the caller's ID, not the method: store ID → method when making a request, then interpret the result with `ProtocolResults[method]`. State events can arrive between responses; readiness responses can arrive after later control responses.
+
+[Protocol fixtures](../fixtures/protocol/README.md) provide complete synthetic views, requests/responses and all event types for backend/UI development. They include trust, permission, question, running, paused, stopped, failed and completed screens. Display their simulation label; they are not model results. `serve --stdio --demo` is also available for a running simulation bridge.
+
 ## Requests and responses
 
 ```json
@@ -30,6 +47,7 @@ The state above is abbreviated. Creation/open/get return the full `View` exporte
 | --- | --- | --- |
 | `profiles.choices` | `{}` | Selectable local profiles and installed images, with reference, manifest, source/checksum and image identity |
 | `profiles.list` | `{}` | Local profile manifests, source paths and checksums |
+| `profiles.readiness` | `reference` from choices, or a trusted local source/image reference | Local `ProfileReadiness`; no session or model call required |
 | `session.list` | `{}` | Saved session IDs, titles, mode, update time and configuration |
 | `session.create` | Optional `title`, `orchestrator`, `workers: string[]`; alternatively `direct` | Full state |
 | `session.open` | `sessionId` (UUID or `latest`) | Full restored state |
@@ -43,7 +61,36 @@ The state above is abbreviated. Creation/open/get return the full `View` exporte
 | `session.assign` | `sessionId`, `taskId`, `profileId` | `null`; pending tasks only |
 | `request.respond` | `sessionId`, `requestId`, `answer` | `null` |
 
-All controls require the active UUID; commands for a different session fail. Stop the active run before creating/opening another session. Session transitions cannot overlap; the host waits for an in-flight transition before shutting down. Opening a saved session does not start a model turn. Existing sessions restore their saved selection; create a new one to change it. Images referenced by create must already exist in the configured store. Local source references can be profile IDs or absolute directories. Relative directories resolve from the bridge process working directory.
+Session controls require the active UUID; commands for a different session fail. Stop the active run before creating/opening another session. Session transitions cannot overlap; the host waits for an in-flight transition before shutting down. Opening a saved session does not start a model turn. Existing sessions restore their saved selection; create a new one to change it. Images referenced by create must already exist in the configured store. Local source references can be profile IDs or absolute directories. Relative directories resolve from the bridge process working directory.
+
+## Profile readiness
+
+Before creating a session, query each selected profile with `profiles.readiness`. This uses the same local inspector as the runtime and `check <reference> --json`. It returns a fresh `checkedAt`, original `reference`, `available`, summary `reason` and `checks`. Successfully resolved profiles also include `profileId`, `harness`, optional effective `model`, `checksum` and optional image identity.
+
+```json
+{"version":1,"id":"setup-1","method":"profiles.readiness","params":{"reference":"codex"}}
+```
+
+Example blocked result (abbreviated checks):
+
+```json
+{"version":1,"id":"setup-1","ok":true,"result":{"reference":"codex","profileId":"codex","harness":"codex","checkedAt":"2026-10-16T00:00:00.000Z","available":false,"reason":"Native login missing.","checks":[{"kind":"native","status":"blocked","reason":"Native login missing.","action":"Run `codex login`, then check again."}]}}
+```
+
+Each check has `kind`, `status`, `reason` and optional display-only `action`:
+
+| Kind | What it checks |
+|---|---|
+| `source` | Manifest, declared skill/plugin files, safe paths and source integrity. Missing/invalid sources return a blocked report without creating a session. |
+| `environment` | Required variable names are set; values are never included. |
+| `plugins` | Known adapter restrictions, including unsupported bundled Codex plugins. |
+| `native` | Existing harness discovery/setup probes. OpenCode detects its executable; Codex checks local login status. No model request is made. |
+| `image` | Locked platform, architecture, model override and runtime/adapter versions, when an image is used. |
+| `provider` | Always `unverified`: actual model access, expired credentials, native skill/plugin loading and integration authorization require a real session. |
+
+`status` is `passed`, `blocked` or `unverified`. `available:true` means no known local blocker; it does not prove provider access. Checks never run profile scripts, install dependencies, authenticate the user, grant trust or start a session. Show each blocked check's `action`; the user performs setup in their native terminal and requests another check. Do not execute action text automatically.
+
+A valid readiness request returns `ok:true` even if setup/source is blocked. Invalid params return the ordinary `ok:false` envelope. Preflight can take seconds while native status/version commands run; the bridge continues processing stop and approval controls, and waits for outstanding checks before exiting. Existing `View.availability` entries retain `available`/`reason` and may additionally contain these checks.
 
 ## Events and completion
 
@@ -72,5 +119,7 @@ Never auto-approve. A stale/already-resolved request ID fails. `session.submit` 
 ## Trust boundary and current limits
 
 This is a trusted local bridge with access to project files and native account permissions. Do not expose it directly to an untrusted network/browser. The planned browser UI must use a separate local Node host with a browser-safe API; that host starts this CLI bridge as a child and keeps its stdio private. Bind any local HTTP listener to loopback, validate the browser origin, and require a per-instance token. Use native provider login on the machine; do not pass credentials in JSONL. Known environment secrets are redacted from output/checkpoints, but ordinary conversation/source can still contain other sensitive data.
+
+The stdio schema intentionally accepts trusted filesystem references. The browser host must allowlist profile references discovered by `profiles.choices` (and profiles selected at host startup); schema validation alone does not authorize arbitrary browser-supplied paths for readiness or session creation.
 
 One active session per bridge; multiple saved sessions. Full snapshots grow with conversation/history; this MVP is intended for local interactive use, not a high-volume remote service. Simulation previews explicit fixture routing; it is not evidence of live model or Claude authentication success.

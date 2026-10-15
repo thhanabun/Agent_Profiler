@@ -13,6 +13,8 @@ import type { LoadedProfile } from './schema.js';
 import { stopProcess } from './process.js';
 import { findCodex, getCodexAuth, runCodex } from './codex.js';
 import { getClaudeAuth, claudeCloudConfigured, findClaude } from './auth.js';
+import type { Availability, ReadinessCheck } from './contracts.js';
+export type { Availability } from './contracts.js';
 
 export type Ask = (kind: 'permission' | 'trust' | 'question', title: string, detail: string, signal: AbortSignal) => Promise<string>;
 export type HarnessEvent = { kind: 'text' | 'activity' | 'session'; text: string; sessionId?: string };
@@ -303,7 +305,6 @@ export function missingEnv(profile: LoadedProfile): string[] {
     !(key === 'ANTHROPIC_API_KEY' && profile.manifest.harness === 'claude' && claudeCloudConfigured()));
 }
 
-export type Availability = Record<string, { available: boolean; reason: string }>;
 export async function inspectProfiles(profiles: LoadedProfile[]): Promise<Availability> {
   const codex = profiles.some(profile => profile.manifest.harness === 'codex') ? await getCodexAuth() : undefined;
   const claude = profiles.some(profile => profile.manifest.harness === 'claude') ? await getClaudeAuth().catch(error => ({
@@ -317,11 +318,33 @@ export async function inspectProfiles(profiles: LoadedProfile[]): Promise<Availa
   const readiness: Availability = Object.fromEntries(profiles.map(profile => {
     const missing = missingEnv(profile);
     const native = profile.manifest.harness === 'claude' ? claude! : profile.manifest.harness === 'codex' ? codex! : openCode!;
-    return [profile.manifest.id, profile.manifest.harness === 'codex' && profile.manifest.plugins.length ? { available: false, reason: 'Packaged Codex plugins are not supported yet. Configure plugins natively or use a profile without bundled plugins.' } : missing.length ? { available: false, reason: `Missing: ${missing.join(', ')}` } : { available: native.available, reason: native.reason }];
+    const checks: ReadinessCheck[] = [];
+    if (profile.manifest.harness === 'codex' && profile.manifest.plugins.length) checks.push({ kind: 'plugins', status: 'blocked',
+      reason: 'Packaged Codex plugins are not supported yet.', action: 'Configure plugins natively or use a profile without bundled plugins.' });
+    checks.push({ kind: 'environment', status: missing.length ? 'blocked' : 'passed',
+      reason: missing.length ? `Missing: ${missing.join(', ')}` : 'All declared environment variables are set.',
+      ...(missing.length ? { action: 'Set the named variables in the environment that launches Subharness. Keep values out of profile bundles.' } : {}) });
+    checks.push({ kind: 'native', status: native.available ? 'passed' : 'blocked', reason: native.reason,
+      ...(!native.available ? { action: profile.manifest.harness === 'opencode'
+        ? 'Install native OpenCode or fix SUBHARNESS_OPENCODE_BIN, then configure its provider with `opencode`.'
+        : profile.manifest.harness === 'codex' ? 'Install native Codex or fix SUBHARNESS_CODEX_BIN, then run `codex login`.'
+          : 'Run `claude auth login` or configure an API key/cloud provider in the local environment.' } : {}) });
+    const blocked = checks.find(check => check.status === 'blocked');
+    return [profile.manifest.id, { available: !blocked, reason: blocked ? [blocked.reason, blocked.action].filter(Boolean).join(' ') : native.reason, checks }];
   }));
-  for (const profile of profiles) if (profile.image && readiness[profile.manifest.id]?.available) {
-    try { await checkImageRuntime(profile); }
-    catch (error) { readiness[profile.manifest.id] = { available: false, reason: error instanceof Error ? error.message : String(error) }; }
+  for (const profile of profiles) {
+    const result = readiness[profile.manifest.id]!;
+    if (profile.image) {
+      try { await checkImageRuntime(profile); result.checks!.push({ kind: 'image', status: 'passed', reason: 'Locked model, platform and native runtime versions match.' }); }
+      catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        result.checks!.push({ kind: 'image', status: 'blocked', reason, action: 'Restore the locked model/runtime/platform or rebuild the image for this machine.' });
+        if (result.available) result.reason = reason;
+        result.available = false;
+      }
+    }
+    result.checks!.push({ kind: 'provider', status: 'unverified', reason: 'Model access and native skill/plugin loading are checked only when a session runs.',
+      action: 'Authenticate/configure the native harness locally, then run a session to verify provider access.' });
   }
   return readiness;
 }

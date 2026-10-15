@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { readFile, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { findOpenCode, inspectProfiles, modelFor, nativeRuntime } from './adapters.js';
+import { findOpenCode, modelFor, nativeRuntime } from './adapters.js';
 import { exportBundle, importBundle } from './bundles.js';
 import { SessionManager } from './application.js';
 import { serveStdio } from './protocol.js';
@@ -46,7 +46,7 @@ const help = `Subharness · native specialist profiles, one terminal thread
   subharness profiles [search text]
   subharness show <profile-id-or-directory>
   subharness init <directory> --harness opencode|claude|codex
-  subharness check <profile-id-or-directory>
+  subharness check <profile-id-or-directory> [--json]
   subharness fork <profile> --to <directory> [--id my-profile]
   subharness export <profile> --out <file.agentpack>
   subharness import <file.agentpack> --to <directory>
@@ -61,7 +61,7 @@ Options:
   --orchestrator <ref>        Planning profile/image (default: orchestrator)
   --worker <ref>              Worker profile/image; repeat to select the team
   --title <text>              New session title
-  --json                    JSON output for profiles/sessions
+  --json                    JSON output for profiles/sessions/check
   --state-dir <directory>     Local history/staging (default: <cwd>/.subharness)
   --store <directory>         OCI image store (default: ~/.subharness/images)
   --plain-http               Loopback development registry only
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
   };
   const extraRoot = path.resolve(values.profiles ?? path.join(stateRoot, 'profiles'));
   let command = positionals[0] ?? 'run';
-  const imageOnly = ['images', 'inspect', 'diff', 'pull', 'push', 'catalog', 'team', 'doctor', 'sessions', 'session', 'serve'].includes(command) || (command === 'search' && Boolean(values.catalog ?? process.env.SUBHARNESS_CATALOG));
+  const imageOnly = ['images', 'inspect', 'diff', 'pull', 'push', 'catalog', 'team', 'doctor', 'check', 'sessions', 'session', 'serve'].includes(command) || (command === 'search' && Boolean(values.catalog ?? process.env.SUBHARNESS_CATALOG));
   const profiles = imageOnly ? [] : await loadProfiles(extraRoot);
   if (values.model && command !== 'build') throw new Error('--model is a build option. Images lock the model; fork and rebuild to change it. Local profiles support SUBHARNESS_MODEL_<PROFILE_ID>.');
   const demo = values.demo || command === 'demo';
@@ -187,12 +187,15 @@ async function main(): Promise<void> {
       return;
     }
     case 'check': {
-      const profile = await getProfile(positionals[1]);
-      console.log(`Valid source: @${profile.manifest.id}\nSHA-256 ${profile.checksum}`);
-      const readiness = (await inspectProfiles([profile]))[profile.manifest.id]!;
-      console.log(redact(readiness.reason));
+      if (!positionals[1]) throw new Error('Usage: check <profile-id-or-directory> [--json]');
+      const readiness = await manager.readiness(positionals[1]);
+      if (values.json) console.log(redact(JSON.stringify(readiness)));
+      else {
+        console.log(redact(`Profile: ${readiness.profileId ? `@${readiness.profileId}` : readiness.reference}${readiness.checksum ? `\nSHA-256 ${readiness.checksum}` : ''}`));
+        for (const check of readiness.checks) console.log(redact(`${check.status.toUpperCase()} · ${check.kind}: ${check.reason}${check.action ? `\n  ${check.action}` : ''}`));
+        console.log('Local preflight only. No model request was made. Native project/user policies can also affect execution.');
+      }
       if (!readiness.available) process.exitCode = 1;
-      console.log('Native project/user configuration and machine policies can also affect this profile.');
       return;
     }
     case 'fork': {

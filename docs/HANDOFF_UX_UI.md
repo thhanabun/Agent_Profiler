@@ -31,6 +31,7 @@ Use the latest `agent` branch so the current runtime contract is available. If t
 
 1. Create `web/` as a React/Vite app. Add `react-dom`, Vite, Tailwind, needed type/build packages and `web:dev`/`web:build`/`typecheck:web` scripts to the root package and lockfile.
 2. Add a session picker with saved sessions, create session, select orchestrator/workers, and direct-profile mode.
+   Fetch `profiles.choices`, then request `profiles.readiness` for selected references. Show blocked checks and their setup actions, with a recheck button. `available:true` is a local preflight result; provider access remains unverified until a session runs.
 3. Build the workspace with the existing three-pane concept: task/flow list, conversation, and profile/run/file-diff inspector. Make it responsive without hiding active controls.
 4. Render `session.state` snapshots as replaceable state, not appended output. Subscribe to the host event stream and reconnect after network interruption.
 5. Implement stop, pause, resume, retry and assign actions using the selected session/task IDs.
@@ -43,9 +44,11 @@ The project directory is selected when the local host starts. Display it as read
 ## Existing source to reuse
 
 - `docs/UI_PROTOCOL.md`: methods, events, trust semantics, size limits and local security boundary.
+- `src/contracts.ts`: browser-safe protocol schemas/types. Use `parseRequest()` to validate method-specific request params.
+- `fixtures/protocol/examples.ts`: synthetic complete screen states, profiles/readiness, requests/responses and events. Show a SIMULATION badge; named screen states are independent examples.
 - `src/ui.tsx` and `src/workspace-ui.tsx`: current interaction model and terminology.
 
-The browser cannot import Node filesystem/process modules or launch stdio. All data and actions come from the local host; do not import runtime modules into the browser. Keep provider keys, native auth and local project paths out of browser storage and URLs.
+The browser cannot import Node filesystem/process modules or launch stdio. All live data and actions come from the local host; use `src/contracts.ts` for shared contracts and keep `src/core.ts`/runtime modules out of the browser bundle. Keep provider keys, native auth and local project paths out of browser storage and URLs. Setup actions are text instructions, never executable browser actions.
 
 ## Hand back
 
