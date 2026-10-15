@@ -5,7 +5,7 @@ Environment: Windows, Node.js 26.4.0, OpenCode 1.19.0; dependencies pinned in pa
 ## Automated fixtures
 
 - `npm run typecheck`: passed.
-- `npm test`: 57 tests passed after cleanup, shared contracts/readiness and recovery work. No model or registry requests.
+- `npm test`: 78 tests passed after cleanup, shared contracts/readiness, recovery and local HTTP/SSE host work. No model or registry requests.
 - Covers planning/DAG validation, automatic profile selection via fixture, returning to a native session, worker failures, stopping, steering during work/planning, chat without workers, memory/persona, crash checkpoints, known-secret redaction, exact task diffs, bundle integrity/archive attacks, terminal sizing, cursor editing, Thai input and approval forwarding.
 - Added image build determinism (including timezone/input order), immutable tags, base derivation, source/blob integrity, source-only dependency restrictions, catalog search, locked team membership/download reuse, model/platform constraints, direct-image session identity and targeted Windows terminal cleanup retry.
 
@@ -77,6 +77,10 @@ Repeated `npm run typecheck` and `npm test`: passed, **57/57** automated tests w
 | Codex hard crash and retry | `.subharness/recovery/codex-dZGvsr/` |
 
 These are ignored local artifacts, not files distributed by Git. Platform and recovery limits above remain unchanged.
+
+## Local HTTP/SSE host — 2026-10-16
+
+After the backend PR, `npm run typecheck` and `npm test` passed; all **78/78** automated tests passed, including the new local HTTP/SSE host fixtures. They cover request correlation, strict protocol validation, loopback/token/Origin checks, request limits, SSE snapshots/errors/reconnects, lifecycle failures, persistence, active-work shutdown and static path/junction isolation. The deny-only trust fixture disables native execution. The browser build and Vite proxy remain pending; HTTP host tests do not verify a live provider call through the host. See the [host guide](../server/README.md).
 
 ## Terminal session navigation and benchmark
 

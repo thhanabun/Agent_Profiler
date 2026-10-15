@@ -1,6 +1,6 @@
 # Subharness web UI and local host: current gaps
 
-This repository already contains the agent runtime and CLI. The next slice adds a browser interface and a small local Node host around the same engine. It does not add a second orchestrator, domain workflow, cloud runner or account product.
+This repository contains the agent runtime, CLI and local Node HTTP/SSE host. The next slice adds a browser interface around the same engine. It does not add a second orchestrator, domain workflow, cloud runner or account product.
 
 ## Current state
 
@@ -8,12 +8,12 @@ This repository already contains the agent runtime and CLI. The next slice adds 
 |---|---|---|
 | Runtime | `src/engine.ts`, profiles, OpenCode/Codex/Claude adapters, local JSON sessions | Remaining platform/live checks are tracked in `TESTING.md` |
 | CLI | `bin/subharness.mjs`, `src/cli.tsx`, Ink workspace and team/session pickers | Keep as the reference client |
-| Host protocol | `src/protocol.ts`, shared browser-safe `src/contracts.ts`, JSONL v1, `profiles.readiness`, synthetic screen/event fixtures | Browser-compatible local HTTP API and event stream |
+| Host protocol | Shared browser-safe `src/contracts.ts`, JSONL v1, `profiles.readiness`, synthetic fixtures and `server/` HTTP/SSE | Browser client integration |
 | Web UI | No current web client | Session/team picker, conversation, task flow, inspector, diffs and trust/permission requests |
-| Backend/persistence | `SessionManager` writes local `.subharness` state | Local host lifecycle, HTTP routing and secure browser-to-host connection |
+| Backend/persistence | One CLI child for fixed project/state directories; local persistence, shutdown, loopback/token checks and fixed `web/dist` static adapter | Frontend/build absent; full browser, Vite proxy and live provider execution through HTTP unverified |
 | Cloud features | None required for personal local use | Remote accounts, sync and hosted execution are intentionally deferred |
 
-The browser cannot spawn a CLI process or open its stdio streams. A Node host must own the CLI child process and translate browser requests/events to the existing JSONL protocol. The CLI child owns `SessionManager` and protects access to local project files and native provider accounts. Keep the HTTP host on loopback.
+The browser cannot spawn a CLI process or open its stdio streams. The implemented Node host owns one CLI child and translates HTTP/SSE to the existing JSONL protocol. The CLI child owns `SessionManager` and the local session store; native accounts remain on the machine. Routes, token handling, shutdown and manual checks are documented in the [local host guide](../server/README.md).
 
 ## Agreed product shape
 
@@ -27,13 +27,13 @@ The current CLI remains usable on its own. The browser client is a second surfac
 
 ## Work split
 
-### Local host / backend
+### Local host / backend — implemented
 
-- Add a Node.js 24+ TypeScript host under `server/`.
-- Start the existing `subharness serve --stdio` process with an argument array and `shell: false`; keep stdin/stdout private to the host.
-- Expose only the operations already supported by `docs/UI_PROTOCOL.md`; relay `session.state` and `operation.error` as browser events.
-- Serve the built UI from the same origin, bind to `127.0.0.1`, check `Origin`, use a per-instance token, bound request bodies, and never allow arbitrary host/port access.
-- Forward stop, pause, resume, retry, assignment, and request responses to the active session with exact IDs.
+- Node.js 24+ TypeScript host under `server/`.
+- Starts one `subharness serve --stdio` child for a fixed project/state directory with an argument array, `shell: false` and private stdio.
+- Exposes existing JSONL operations over HTTP; relays `session.state` and `operation.error` over SSE.
+- Binds to `127.0.0.1`, checks Host/Origin, requires a per-instance API token and bounds request bodies. The same-origin static adapter is ready; missing `web/dist` currently returns 503.
+- Forwards stop, pause, resume, retry, assignment and exact-ID request responses; shutdown preserves the existing local session store.
 - Keep provider credentials on the local machine. Do not add Supabase or an Edge Function that tries to launch native harnesses.
 
 ### Web UI
@@ -44,6 +44,8 @@ The current CLI remains usable on its own. The browser client is a second surfac
 - Do not render agent output as HTML or imply a permission was granted without the matching request ID response.
 
 ## Acceptance flow
+
+The browser acceptance flow below remains pending. Current backend tests use offline demo/fixtures; they do not verify the absent frontend, its Vite proxy or live provider calls through HTTP.
 
 1. Create a session in the browser and choose the same orchestrator/workers supported by the CLI.
 2. Submit a coding goal; see planner and worker events update the task flow.
