@@ -8,6 +8,45 @@
 
 รอบนี้รับงานบน local environment ก่อน งาน deploy/hosting/โดเมนอยู่ในรอบถัดไป ไม่ใช่เงื่อนไขรับงานของเพื่อนทั้งสองคน
 
+## เริ่มงานจาก GitHub
+
+Clone repo ลงเครื่องของตัวเอง แล้วสร้าง branch ของ UX/UI จาก `main`:
+
+```sh
+git clone https://github.com/thhanabun/Agent_Profiler.git
+cd Agent_Profiler
+git switch main
+git pull --ff-only origin main
+git switch -c feat/mission-ux-ui
+npm ci
+```
+
+ใช้ branch นี้ทำงานทั้งหมดของคุณ อย่าทำ commit บน `main` และอย่าใช้ branch ร่วมกับ Backend
+
+### สิ่งที่ต้อง implement ใน branch นี้
+
+1. ย้าย template ปัจจุบันเป็น **React + TypeScript + Vite + Tailwind CSS + React Router** ตาม stack ด้านล่าง; คง `missionApi` boundary และ fixture เพื่อ preview ได้
+2. สร้าง routes `/missions`, `/missions/:id`, `/events/:slug`; ทำ My Missions/create/intake confirmation และ Supabase login states
+3. ทำ workspace: files/source versions, budget/agenda/event previews, task/decision states, draft revision และ published version
+4. ทำ flow แก้ 60→80 และเลือกห้องจาก decision ที่ backend ส่งมา พร้อม error เมื่อ revision เปลี่ยน
+5. ทำ review/diff ของ bundle และ public event/signup/receipt states; ต่อ access token กับ API client โดยไม่ใส่ server key ใน browser
+6. ทำ responsive/mobile, keyboard/focus, labels, validation errors และ loading/empty/failed/stale states
+
+ไฟล์หลักที่คุณเป็นเจ้าของคือ `web/**`, `package.json` และ `package-lock.json` สำหรับ frontend dependencies/scripts หากต้องเปลี่ยน `mission/contracts.ts` ให้ตกลงกับ Backend และเจ้าของ Core ก่อน เพราะเป็น contract กลาง
+
+### ส่งงานกลับ
+
+```sh
+npm run typecheck:mission
+npm run web:build
+git status --short
+git add web/ package.json package-lock.json
+git commit -m "Build Mission workspace UI"
+git push -u origin feat/mission-ux-ui
+```
+
+เปิด Pull Request จาก `feat/mission-ux-ui` เข้า `main` สรุปหน้าที่ทำ API ที่ต่อแล้ว และ states ที่ยังใช้ fixture; แนบภาพหน้าจอถ้าช่วยรีวิวได้ อย่าอ้างว่า flow จริงทำงานถ้ายังไม่ได้ต่อ API
+
 ## Stack ที่ใช้ทำต่อ
 
 | ส่วน | Stack ที่เลือก | หน้าที่ |

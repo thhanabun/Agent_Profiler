@@ -8,6 +8,46 @@
 
 รอบนี้ยังไม่ทำ deploy/hosting/โดเมน และไม่ต้องสร้าง cloud project เพื่อให้ผ่านเงื่อนไขรับงาน
 
+## เริ่มงานจาก GitHub
+
+Clone repo ลงเครื่องของตัวเอง แล้วสร้าง branch ของ Backend จาก `main`:
+
+```sh
+git clone https://github.com/thhanabun/Agent_Profiler.git
+cd Agent_Profiler
+git switch main
+git pull --ff-only origin main
+git switch -c feat/mission-backend-local
+```
+
+ใช้ branch นี้ทำงานของ Backend อย่าทำ commit บน `main` และอย่าใช้ branch ร่วมกับ UX/UI; งานรอบนี้ใช้ Supabase local ไม่ deploy
+
+### สิ่งที่ต้อง implement ใน branch นี้
+
+1. ตั้ง Supabase CLI/local stack (`supabase init` เมื่อยังไม่มี `config.toml`, แล้ว `supabase start`); ห้ามใช้ `db reset` กับข้อมูลที่ต้องเก็บ
+2. ตรวจและใช้ migration ใน `supabase/migrations/`; ทำให้ owner อ่านงานตัวเองได้ ขณะที่ข้อมูล private และ child tables ต้องผ่าน authorization ฝั่ง server
+3. ทำ JWT verification, Zod/request validation และ mission routes ตามตารางในเอกสารนี้; สร้าง API examples ให้เพื่อน UI ใช้
+4. ทำ upload/download ใน private storage พร้อมตรวจ owner, path, MIME/size/hash และให้ migration/DB สร้าง file revisions ที่อ่านย้อนหลังได้
+5. ทำ expectedRevision, task claims/leases, cancel/late-result guards และ atomic artifact/task commit ร่วมกับเจ้าของ Core
+6. ทำ publish และ signup transactions: exact bundle, idempotent receipt, stale bundle, capacity/last-seat race และ owner-only CSV
+7. ทำ local owner/API/public flow ให้ UI ต่อได้; **ยังไม่ทำ hosting, public URL, domain หรือ deploy cloud functions**
+
+ไฟล์หลักที่คุณเป็นเจ้าของคือ `supabase/**`, `.env.example` ภายใน `supabase/` และเอกสารวิธีรัน local หากต้องเปลี่ยน `mission/contracts.ts`, `web/src/api.ts` หรือ root package manifests ให้ตกลงกับอีกสองคนก่อน การต่อ provider/U-Bot/domain tools เป็นงานร่วมกับเจ้าของ Core
+
+### ส่งงานกลับ
+
+```sh
+supabase start
+supabase status
+supabase test db
+git status --short
+git add supabase/
+git commit -m "Build local Mission API and database"
+git push -u origin feat/mission-backend-local
+```
+
+เปิด Pull Request จาก `feat/mission-backend-local` เข้า `main` ระบุ migration/วิธีรัน local, endpoints ที่ทำจริง, DB tests ที่ผ่าน และ API ที่ยังเป็น 501 ห้ามแนบ `.env`, keys, Supabase access tokens หรือข้อมูลสมัครจริง
+
 ## Stack ที่ใช้ทำต่อ
 
 | ส่วน | Stack ที่เลือก | หน้าที่ |
