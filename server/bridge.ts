@@ -2,18 +2,18 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import type { ProtocolRequest } from '../src/contracts.js';
+import type { ProtocolEvent as ContractProtocolEvent, ProtocolRequest, ProtocolResponse } from '../src/contracts.js';
 import { stopProcess } from '../src/process.js';
 
 export type Request = ProtocolRequest;
-export type Reply = { version: 1; id: string; ok: boolean; result?: unknown; error?: string };
-export type ProtocolEvent = { version: 1; event: string; [key: string]: unknown };
+export type Reply = ProtocolResponse;
+export type ProtocolEvent = ContractProtocolEvent;
 
 export class Bridge extends EventEmitter {
   readonly child;
-  readonly ready: Promise<ProtocolEvent>;
+  readonly ready: Promise<Extract<ProtocolEvent, { event: 'ready' }>>;
   readonly closed: Promise<void>;
-  latest?: ProtocolEvent;
+  latest?: Extract<ProtocolEvent, { event: 'session.state' }>;
   failure?: Error;
   private stopping = false;
   private closing?: Promise<void>;
@@ -27,7 +27,7 @@ export class Bridge extends EventEmitter {
       'serve', '--stdio', '--cwd', cwd, '--state-dir', stateDir, ...(demo ? ['--demo'] : []),
     ], { cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, detached: process.platform !== 'win32' });
     let ready = false;
-    let acceptReady!: (event: ProtocolEvent) => void;
+    let acceptReady!: (event: Extract<ProtocolEvent, { event: 'ready' }>) => void;
     let rejectReady!: (error: Error) => void;
     this.ready = new Promise((resolve, reject) => { acceptReady = resolve; rejectReady = reject; });
     const timer = setTimeout(() => fail(new Error('CLI did not become ready within 30 seconds.')), 30000);
@@ -52,8 +52,8 @@ export class Bridge extends EventEmitter {
         if (typeof message.event === 'string') {
           if (message.event === 'ready') {
             if (ready || !Array.isArray(message.methods)) throw new Error('Invalid CLI ready event.');
-            ready = true; clearTimeout(timer); acceptReady(message);
-          } else if (message.event === 'session.state') this.latest = message;
+            ready = true; clearTimeout(timer); acceptReady(message as Extract<ProtocolEvent, { event: 'ready' }>);
+          } else if (message.event === 'session.state') this.latest = message as Extract<ProtocolEvent, { event: 'session.state' }>;
           else if (message.event !== 'operation.error') throw new Error('Unknown CLI event.');
           this.emit('event', message);
         } else if (typeof message.id === 'string' && typeof message.ok === 'boolean') {
@@ -93,16 +93,16 @@ export class Bridge extends EventEmitter {
     }));
   }
 
-  request(request: Request, signal?: AbortSignal): Promise<Reply> {
+  request<R extends ProtocolRequest>(request: R, signal?: AbortSignal): Promise<ProtocolResponse<R['method']>> {
     if (this.failure || this.stopping) return Promise.reject(this.failure ?? new Error('CLI is stopping.'));
     if (this.pending.size >= 64) return Promise.reject(new Error('Too many pending CLI requests.'));
     const id = randomUUID();
     const line = JSON.stringify({ ...request, id }) + '\n';
     if (Buffer.byteLength(line) > 65536) return Promise.reject(new Error('Request exceeds the 64 KiB JSONL limit.'));
-    return new Promise<Reply>((resolve, reject) => {
+    return new Promise<ProtocolResponse<R['method']>>((resolve, reject) => {
       const finish = (error?: Error, reply?: Reply) => {
         clearTimeout(timer); signal?.removeEventListener('abort', aborted); this.pending.delete(id);
-        if (error) reject(error); else resolve({ ...reply!, id: request.id });
+        if (error) reject(error); else resolve({ ...reply!, id: request.id } as ProtocolResponse<R['method']>);
       };
       const aborted = () => finish(new Error('HTTP client disconnected.'));
       const timer = setTimeout(() => finish(new Error('CLI request timed out after 30 seconds.')), 30000);

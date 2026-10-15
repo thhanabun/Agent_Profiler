@@ -3,8 +3,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseRequest, requestSchema } from '../src/contracts.js';
-import { Bridge, type ProtocolEvent, type Request } from './bridge.js';
+import { parseRequest, requestSchema, type ProtocolEvent, type ProtocolRequest } from '../src/contracts.js';
+import { Bridge } from './bridge.js';
 import { serveStatic } from './static.js';
 
 const webRoot = fileURLToPath(new URL('../web/dist/', import.meta.url));
@@ -24,7 +24,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
   const token = randomBytes(32).toString('base64url');
   const authorization = Buffer.from(`Bearer ${token}`);
   const bridge = new Bridge(cwd, stateDir, demo);
-  const streams = new Set<ServerResponse>();
+  const streams = new Map<ServerResponse, () => void>();
   let origin = '';
   let stopping = false;
   let failure: Error | undefined;
@@ -40,7 +40,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
     if (response.writableNeedDrain) { response.destroy(); return; }
     response.write(`event: ${event.event}\ndata: ${JSON.stringify(event)}\n\n`);
   };
-  bridge.on('event', event => { for (const response of streams) sendEvent(response, event); });
+  bridge.on('event', event => { for (const response of streams.keys()) sendEvent(response, event); });
   const handle = async (request: IncomingMessage, response: ServerResponse) => {
     let rpcAlias = false;
     let requestId: string | null = null;
@@ -67,14 +67,17 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
       }
       if (request.method === 'GET' && url.pathname === '/api/events') {
         if (streams.size >= 16) throw new HttpError(429, 'Too many event streams.');
-        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'close', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff' });
-        sendEvent(response, await bridge.ready);
-        if (bridge.latest) sendEvent(response, bridge.latest);
-        streams.add(response);
         const heartbeat = setInterval(() => {
           if (response.writableNeedDrain) response.destroy(); else response.write(': keepalive\n\n');
         }, 15000);
-        response.once('close', () => { clearInterval(heartbeat); streams.delete(response); });
+        const cleanup = () => {
+          clearInterval(heartbeat); streams.delete(response); response.off('close', cleanup);
+        };
+        streams.set(response, cleanup);
+        response.once('close', cleanup);
+        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'close', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff' });
+        sendEvent(response, await bridge.ready);
+        if (bridge.latest) sendEvent(response, bridge.latest);
         return;
       }
       const method = url.pathname.startsWith('/api/') ? url.pathname.slice(5) : '';
@@ -96,7 +99,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
       requestId = envelope.id;
       if (!rpcAlias && envelope.method !== method) throw new HttpError(400, 'Route and JSONL method must match.');
       if (Buffer.byteLength(JSON.stringify({ ...envelope, id: '0'.repeat(36) })) + 1 > 65536) throw new HttpError(413, 'Request exceeds the 64 KiB JSONL limit.');
-      let parsed: Request;
+      let parsed: ProtocolRequest;
       try { parsed = parseRequest(envelope); }
       catch (error) { throw new HttpError(400, `Invalid method parameters: ${error instanceof Error ? error.message : String(error)}`); }
       if (response.destroyed) return;
@@ -122,6 +125,9 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
     response.on('error', () => response.destroy());
     void handle(request, response);
   });
+  server.on('connection', socket => socket.once('close', () => {
+    for (const [response, cleanup] of streams) if (response.req.socket === socket) cleanup();
+  }));
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.maxConnections = 64;
@@ -129,7 +135,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
     stopping = true;
     const stopped = new Promise<void>(resolve => server.close(() => resolve()));
     await bridge.close();
-    for (const stream of streams) stream.end();
+    for (const [stream, cleanup] of streams) { stream.end(); cleanup(); }
     // The CLI has flushed; only stalled network clients are force-closed after this grace period.
     const timer = setTimeout(() => server.closeAllConnections(), 5000);
     try { await stopped; }
