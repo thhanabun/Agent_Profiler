@@ -1,6 +1,6 @@
 # Local Subharness host
 
-Steps 1–6 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
+The backend work for Steps 1–7 of the [handoff](../docs/HANDOFF_BACKEND.md) is implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI. Frontend implementation and full browser integration remain pending.
 
 The default command starts HTTP instead of the Step-1 terminal JSONL passthrough. It serves a frontend build from the repository's fixed `web/dist` directory. The frontend itself is not present yet, so static page requests currently return HTTP 503 with build guidance.
 
@@ -147,18 +147,42 @@ Negative checks:
 | Add `cwd`, `shell`, `executable` or `credentials` to `session.create` params | HTTP 200 with `ok:false` and a validation error; no session is created and `/api/host` stays unchanged. |
 | Run another host on the same project | Nonzero exit; the first host retains its lock. |
 
-Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Interactive Ctrl+C has not yet been tested; automated EOF shutdown and lock cleanup have passed.
+Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Windows console Ctrl+C was checked manually: the child exited, the lock disappeared and the listener refused new connections. Automated EOF shutdown also passed.
 
 Startup cancellation, child errors/stdout EOF and occupied ports close the host without starting a replacement runner. Unexpected CLI failure exits nonzero. Normal shutdown lets the CLI flush first, ends SSE responses and allows up to five seconds for stalled network clients to disconnect. It does not force-kill the CLI. After a crash, the existing CLI lock recovery checks whether the saved PID is alive before recovering a stale lock.
 
 To check persistence manually, restart with exactly the same `--cwd`, `--state-dir` (if supplied) and `--demo` setting. Copy the newly printed token into Terminal B, then list/open the saved session. Expected: the session ID and title remain; the old token gets HTTP 401. Demo and live histories remain separate. Changing projects requires stopping this host and starting another with the new trusted project path.
 
+## Active shutdown and trust tests
+
+To check interruption, create a demo session as above, keep Terminal C streaming, then submit from Terminal B:
+
+```powershell
+$sessionId = $created.result.session.id
+$body = @{ version = 1; id = 'manual-submit'; method = 'session.submit'; params = @{ sessionId = $sessionId; text = 'Offline shutdown check' } } | ConvertTo-Json -Compress
+Invoke-RestMethod "$hostUrl/api/session.submit" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
+```
+
+Expected: `ok:true,result.accepted:true`, followed by busy/running SSE state. Press Ctrl+C in Terminal A while the task is running. After shutdown, inspect the saved session:
+
+```powershell
+$savedFile = Join-Path $hostProject ".subharness\sessions\$sessionId.json"
+$saved = Get-Content -Raw $savedFile | ConvertFrom-Json
+$saved.tasks | Select-Object id, status
+$saved.runs | Select-Object id, status
+Test-Path (Join-Path $hostProject '.subharness\runner.lock')
+```
+
+Expected for an interrupted task: task/run status `stopped`, partial output retained, and `False` for the lock. Restart and open the same session: it remains stopped until explicitly resumed. If the short demo finished before Ctrl+C, the saved status is `completed`; repeat while it is busy to test interruption.
+
+For a safe trust check, run `node --import tsx --test test/server-permissions.test.ts`. It uses isolated real-mode state, disables the native executable, and answers only `no`. Expected: a passing test proving trust title/detail/UUID reach SSE, stale and replayed IDs fail, chat text cannot approve, and denial creates no native session or trust entry. The host never supplies an approval automatically.
+
 ## Checks
 
 ```powershell
 npm run typecheck
-node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts
+node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts test/server-shutdown.test.ts test/server-permissions.test.ts
 npm test
 ```
 
-Host tests use temporary projects and explicit demo mode. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation and stale-lock recovery after a simulated child crash. Static tests use a tiny temporary build to check MIME/GET/HEAD behavior, SPA fallback, missing-build guidance and path/symlink isolation. They do not call providers or verify a completed frontend.
+Host tests use temporary projects and explicit demo mode, except the deny-only trust test with native execution disabled. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation, stale-lock recovery, active-run shutdown and exact trust-request IDs. Static tests use a tiny temporary build to check MIME/GET/HEAD behavior, SPA fallback, missing-build guidance and path/symlink isolation. They do not call providers or verify a completed frontend.
