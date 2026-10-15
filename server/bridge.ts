@@ -3,20 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { requestSchema } from '../src/protocol.js';
-
-export type Request = ReturnType<typeof requestSchema.parse>;
-export type Reply = { version: 1; id: string; ok: boolean; result?: unknown; error?: string };
-export type ProtocolEvent = { version: 1; event: string; [key: string]: unknown };
+import type { ProtocolRequest, ProtocolResponse, ProtocolEvent } from '../src/contracts.js';
 
 export class Bridge extends EventEmitter {
   readonly child;
-  readonly ready: Promise<ProtocolEvent>;
+  readonly ready: Promise<Extract<ProtocolEvent, { event: 'ready' }>>;
   readonly closed: Promise<void>;
-  latest?: ProtocolEvent;
+  latest?: Extract<ProtocolEvent, { event: 'session.state' }>;
   failure?: Error;
   private stopping = false;
-  private readonly pending = new Map<string, { resolve: (reply: Reply) => void; reject: (error: Error) => void }>();
+  private readonly pending = new Map<string, { resolve: (reply: ProtocolResponse) => void; reject: (error: Error) => void }>();
 
   constructor(cwd: string, stateDir: string, demo: boolean) {
     super();
@@ -25,7 +21,7 @@ export class Bridge extends EventEmitter {
       'serve', '--stdio', '--cwd', cwd, '--state-dir', stateDir, ...(demo ? ['--demo'] : []),
     ], { cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true });
     let ready = false;
-    let acceptReady!: (event: ProtocolEvent) => void;
+    let acceptReady!: (event: Extract<ProtocolEvent, { event: 'ready' }>) => void;
     let rejectReady!: (error: Error) => void;
     this.ready = new Promise((resolve, reject) => { acceptReady = resolve; rejectReady = reject; });
     const timer = setTimeout(() => fail(new Error('CLI did not become ready within 30 seconds.')), 30000);
@@ -71,16 +67,16 @@ export class Bridge extends EventEmitter {
     }));
   }
 
-  request(request: Request, signal?: AbortSignal): Promise<Reply> {
+  request<R extends ProtocolRequest>(request: R, signal?: AbortSignal): Promise<ProtocolResponse<R['method']>> {
     if (this.failure || this.stopping) return Promise.reject(this.failure ?? new Error('CLI is stopping.'));
     if (this.pending.size >= 64) return Promise.reject(new Error('Too many pending CLI requests.'));
     const id = randomUUID();
     const line = JSON.stringify({ ...request, id }) + '\n';
     if (Buffer.byteLength(line) > 65536) return Promise.reject(new Error('Request exceeds the 64 KiB JSONL limit.'));
-    return new Promise<Reply>((resolve, reject) => {
-      const finish = (error?: Error, reply?: Reply) => {
+    return new Promise((resolve, reject) => {
+      const finish = (error?: Error, reply?: ProtocolResponse) => {
         clearTimeout(timer); signal?.removeEventListener('abort', aborted); this.pending.delete(id);
-        if (error) reject(error); else resolve({ ...reply!, id: request.id });
+        if (error) reject(error); else resolve({ ...reply!, id: request.id } as ProtocolResponse<R['method']>);
       };
       const aborted = () => finish(new Error('HTTP client disconnected.'));
       const timer = setTimeout(() => finish(new Error('CLI request timed out after 30 seconds.')), 30000);

@@ -10,15 +10,17 @@ async function fixture(work: (host: Host, root: string) => Promise<void>) {
   const parent = path.resolve('.subharness/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'http host project with spaces-'));
-  const previous = process.env.SUBHARNESS_IMAGE_STORE;
+  const previous = { SUBHARNESS_IMAGE_STORE: process.env.SUBHARNESS_IMAGE_STORE, SUBHARNESS_OPENCODE_BIN: process.env.SUBHARNESS_OPENCODE_BIN };
   process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
+  process.env.SUBHARNESS_OPENCODE_BIN = path.join(root, 'native execution disabled.exe');
   let host: Host | undefined;
   try { host = await startHost({ cwd: root, port: 0, demo: true }); await work(host, root); }
   finally {
     try { await host?.close(); }
     finally {
-      if (previous === undefined) delete process.env.SUBHARNESS_IMAGE_STORE;
-      else process.env.SUBHARNESS_IMAGE_STORE = previous;
+      for (const [key, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
       assert(root.startsWith(parent + path.sep));
       await rm(root, { recursive: true, force: true });
     }
@@ -43,6 +45,21 @@ function http(host: Host, route: string, body?: string | Buffer, headers: Record
 const envelope = (method: string, params: unknown = {}, id = 'fixture') => JSON.stringify({ version: 1, id, method, params });
 const post = async (host: Host, method: string, params: unknown = {}, id = 'fixture') =>
   JSON.parse((await http(host, `/api/${method}`, envelope(method, params, id))).body);
+
+test('readiness uses catalog references and preserves structured checks before session creation', { timeout: 15000 }, () => fixture(async (host, root) => {
+  assert.equal((await http(host, '/api/profiles.readiness', envelope('profiles.readiness', { reference: root }))).status, 403);
+  const [ready, sessions] = await Promise.all([
+    post(host, 'profiles.readiness', { reference: 'implement' }, 'same-id'),
+    post(host, 'session.list', {}, 'same-id'),
+  ]);
+  assert.equal(ready.id, 'same-id'); assert.equal(sessions.id, 'same-id');
+  assert.equal(ready.ok, true); assert.deepEqual(sessions.result, []);
+  assert.equal(ready.result.reference, 'implement');
+  assert.equal(ready.result.available, false);
+  assert(ready.result.checks.some((check: { kind: string; status: string; action?: string }) =>
+    check.kind === 'native' && check.status === 'blocked' && check.action?.includes('SUBHARNESS_OPENCODE_BIN')));
+  assert.deepEqual((await post(host, 'session.list')).result, []);
+}));
 
 async function events(host: Host) {
   const controller = new AbortController();
@@ -93,8 +110,9 @@ test('HTTP host authenticates, bounds requests and isolates concurrent request I
   assert.equal((await http(host, route + '?token=ignored', body)).status, 400);
   assert.equal((await http(host, route, body, { 'content-type': 'text/plain' })).status, 415);
   assert.equal((await http(host, route, ' '.repeat(65537))).status, 413);
-  const padding = 'x'.repeat(65535 - Buffer.byteLength(envelope('session.list', { padding: '' }, 'x')));
-  assert.equal((await http(host, route, envelope('session.list', { padding }, 'x'))).status, 413);
+  const workers = Array.from({ length: 16 }, () => 'x'.repeat(4000));
+  workers.push('x'.repeat(65535 - Buffer.byteLength(envelope('session.create', { workers }, 'x')) - 3));
+  assert.equal((await http(host, '/api/session.create', envelope('session.create', { workers }, 'x'))).status, 413);
   const injected = await post(host, 'session.create', { cwd: root, direct: 'implement' });
   assert.equal(injected.ok, false);
   assert.equal((await http(host, '/api/session.create', envelope('session.create', { direct: root }))).status, 403);
@@ -155,16 +173,17 @@ test('browser configuration stays fixed and all operations retain strict protoco
   for (const params of [{ direct: root }, { orchestrator: root }, { workers: [root] }])
     assert.equal((await http(host, '/api/session.create', envelope('session.create', params))).status, 403);
   for (const field of ['cwd', 'stateDir', 'executable', 'shell', 'command', 'credentials', 'apiKey']) {
-    const rejected = await post(host, 'session.create', { direct: 'implement', [field]: 'browser-supplied' });
-    assert.equal(rejected.ok, false, field);
-    assert.match(rejected.error, /Unrecognized key/);
+    const rejected = await http(host, '/api/session.create', envelope('session.create', { direct: 'implement', [field]: 'browser-supplied' }));
+    assert.equal(rejected.status, 400, field);
+    assert.equal(JSON.parse(rejected.body).ok, false);
   }
   assert.deepEqual((await post(host, 'session.list')).result, []);
   const session = await post(host, 'session.create', { direct: 'implement', title: 'Fixed project' });
   assert.equal(session.ok, true);
   const sessionId = session.result.session.id;
   const params: Record<string, Record<string, unknown>> = {
-    'profiles.list': {}, 'profiles.choices': {}, 'session.list': {}, 'session.create': { direct: 'implement' },
+    'profiles.list': {}, 'profiles.choices': {}, 'profiles.readiness': { reference: 'implement' },
+    'session.list': {}, 'session.create': { direct: 'implement' },
     'session.open': { sessionId }, 'session.get': { sessionId }, 'session.rename': { sessionId, title: 'Rejected' },
     'session.submit': { sessionId, text: 'Rejected' }, 'session.stop': { sessionId }, 'session.pause': { sessionId },
     'session.resume': { sessionId }, 'session.retry': { sessionId },
@@ -173,9 +192,9 @@ test('browser configuration stays fixed and all operations retain strict protoco
   };
   assert.deepEqual(Object.keys(params).sort(), [...metadata.methods].sort());
   for (const [method, fields] of Object.entries(params)) {
-    const rejected = await post(host, method, { ...fields, credentials: 'browser-supplied' });
-    assert.equal(rejected.ok, false, method);
-    assert.match(rejected.error, /Unrecognized key/);
+    const rejected = await http(host, `/api/${method}`, envelope(method, { ...fields, credentials: 'browser-supplied' }));
+    assert.equal(rejected.status, 400, method);
+    assert.equal(JSON.parse(rejected.body).ok, false);
   }
   assert.equal((await post(host, 'session.open', { sessionId: '../outside' })).ok, false);
   const current = await post(host, 'session.get', { sessionId });

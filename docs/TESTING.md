@@ -5,7 +5,7 @@ Environment: Windows, Node.js 26.4.0, OpenCode 1.19.0; dependencies pinned in pa
 ## Automated fixtures
 
 - `npm run typecheck`: passed.
-- `npm test`: 55 tests passed after the domain scaffold cleanup and readiness/contract work. No model or registry requests.
+- `npm test`: 76 tests passed after local host implementation and PR review fixes. No model or registry requests.
 - Covers planning/DAG validation, automatic profile selection via fixture, returning to a native session, worker failures, stopping, steering during work/planning, chat without workers, memory/persona, crash checkpoints, known-secret redaction, exact task diffs, bundle integrity/archive attacks, terminal sizing, cursor editing, Thai input and approval forwarding.
 - Added image build determinism (including timezone/input order), immutable tags, base derivation, source/blob integrity, source-only dependency restrictions, catalog search, locked team membership/download reuse, model/platform constraints, direct-image session identity and targeted Windows terminal cleanup retry.
 
@@ -21,7 +21,16 @@ Added Codex protocol fixtures for native resume, skill discovery/injection, stre
 - Browser bundling smoke check used the installed esbuild with `platform: 'browser'` for `src/contracts.ts` and `fixtures/protocol/examples.ts`. The only project runtime inputs were those two files; no Engine, adapter, filesystem, process or other Node runtime module entered either bundle. This checks the shared boundary, not a completed web app.
 - Actual local CLI checks: `check codex --json` found native Codex login; `check implement --json` found native OpenCode. Both exited 0 and marked provider/model/skill/plugin access **unverified**. These were local setup probes, with no model session or provider request. Prior live model evidence below remains separate.
 
-The local HTTP host and browser UI still need their own integration checks when implemented. This round did not repeat live model calls, registry operations, macOS/Linux checks or interactive native cancellation.
+Full browser integration remains pending. The local host's fixture checks are recorded below; live model calls, registry operations, macOS/Linux checks and interactive native cancellation were not repeated.
+
+## Local HTTP/SSE host and review fixes — 2026-10-16
+
+- `npm run typecheck` passed and `npm test` passed **76/76** after integrating the current shared contracts and readiness protocol.
+- Real CLI child fixtures cover HTTP request correlation, strict shared parameter validation, loopback/token/Origin checks, body limits, SSE snapshots/errors/reconnection, lifecycle failures, persistence and shutdown during active demo work.
+- Readiness rejects unlisted filesystem references before forwarding, preserves structured checks/actions and creates no session. Native execution is disabled in the HTTP readiness fixture.
+- A pipelined SSE regression sends 17 requests in one socket write: 16 are accepted and one is rejected. Disconnecting frees all slots, and the actual host subprocess exits normally after EOF with no surviving heartbeat timers or runner lock.
+- Static fixtures cover GET/HEAD/MIME responses, SPA fallback, missing builds and traversal/junction isolation. A deny-only real-mode fixture verifies exact trust IDs without starting native work or changing the trust store.
+- Windows console Ctrl+C cleanup was checked manually during implementation. The frontend build, Vite proxy and live provider execution through HTTP remain unverified. See the [host manual tests and expected results](../server/README.md).
 
 ## Terminal session navigation and benchmark
 

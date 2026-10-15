@@ -31,13 +31,13 @@ All API endpoints, including SSE, require `Authorization: Bearer <token>` and re
 | `POST /api/<method>` | Existing `{version:1,id,method,params}` JSONL envelope; URL and body method must match. Returns the original response envelope and caller ID. |
 | `GET /api/events` | Authenticated SSE with named `ready`, `session.state` and `operation.error` events, each containing the original JSONL event as `data`. |
 
-Every method in [UI_PROTOCOL.md](../docs/UI_PROTOCOL.md) has a matching POST route, including `profiles.choices`, `session.list`, `session.create`, `session.open`, controls and `request.respond`. Detailed parameter validation and session semantics stay in the CLI. A CLI-level rejection remains HTTP 200 with `ok:false`; a successful asynchronous acceptance is not proof of completed work.
+Every method in [UI_PROTOCOL.md](../docs/UI_PROTOCOL.md) has a matching POST route, including `profiles.choices`, `profiles.readiness`, `session.list`, `session.create`, `session.open`, controls and `request.respond`. The host and CLI both use `parseRequest` from `src/contracts.ts` to validate the envelope and method parameters. Invalid parameters return HTTP 400 before reaching the child. Session semantics stay in the CLI; a runtime rejection remains HTTP 200 with `ok:false`. Successful asynchronous acceptance is not proof of completed work.
 
-Transport errors use `{ok:false,error}`: 400 invalid envelope/method/URL, 401 missing/wrong token, 403 unexpected Host/Origin or unlisted profile reference, 404 route missing, 413 request too large, 415 wrong content type, 429 too many SSE clients, and 502/503 CLI unavailable/stopping.
+Transport errors use `{ok:false,error}`: 400 invalid envelope/params/method/URL, 401 missing/wrong token, 403 unexpected Host/Origin or unlisted profile reference, 404 route missing, 413 request too large, 415 wrong content type, 429 too many SSE clients, and 502/503 CLI unavailable/stopping.
 
-Only references returned by `profiles.choices` may be supplied to `session.create`. Arbitrary profile directories, executable paths, project paths and credentials are not accepted as HTTP configuration. The CLI still validates all parameters and owns profile trust and tool permission requests. Nothing auto-approves a request.
+Only references returned by `profiles.choices` may be supplied to `session.create` or `profiles.readiness`. Arbitrary profile directories, executable paths, project paths and credentials are not accepted as HTTP configuration. The CLI still validates all parameters and owns profile trust and tool permission requests. Nothing auto-approves a request.
 
-The UI should display `GET /api/host`'s `cwd` as read-only text. There is no project-update or credential endpoint. Unknown parameter fields fail in the existing strict CLI schemas before any operation runs. Session IDs remain UUIDs (or `latest` for open), rather than filesystem paths. The frontend still needs to implement that read-only display when it is added.
+The UI should display `GET /api/host`'s `cwd` as read-only text. There is no project-update or credential endpoint. Unknown parameter fields fail in the shared strict schemas before any operation runs. Session IDs remain UUIDs (or `latest` for open), rather than filesystem paths. The frontend still needs to implement that read-only display when it is added.
 
 Requests are byte-limited to 64 KiB including the reserialized JSONL envelope and newline. At most 64 CLI requests and 16 event streams may be pending. A request times out after 30 seconds; a lost/timed-out mutation may already have run, so do not automatically retry it. IDs correlate replies, not idempotency receipts.
 
@@ -113,6 +113,16 @@ Invoke-RestMethod "$hostUrl/api/host" -Headers $hostHeaders
 
 Expected: `{version:1,id:manual-list,ok:true,result:[]}` for an empty project; metadata shows the fixed project/state directory and `demo:true`, without the token.
 
+Check a catalog profile's local setup before creating a session:
+
+```powershell
+$body = @{ version = 1; id = 'manual-ready'; method = 'profiles.readiness'; params = @{ reference = 'implement' } } | ConvertTo-Json -Compress
+$readiness = Invoke-RestMethod "$hostUrl/api/profiles.readiness" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
+$readiness | ConvertTo-Json -Depth 8
+```
+
+Expected: `ok:true` with `result.reference`, `checkedAt`, `available` and structured `checks`. Blocked checks retain their repair `action`; availability depends on the machine's setup. Readiness does not create a session or make a model call, and provider checks can remain `unverified`. An unlisted reference returns HTTP 403. Requests are correlated by ID even when readiness completes after a later request.
+
 Open an event stream in Terminal C using the same token:
 
 ```powershell
@@ -144,7 +154,7 @@ Negative checks:
 | Send malformed JSON or mismatching URL/body methods | HTTP 400. |
 | Send more than the JSONL byte limit | HTTP 413. |
 | Supply an arbitrary directory as `params.direct` | HTTP 403; no session is created. |
-| Add `cwd`, `shell`, `executable` or `credentials` to `session.create` params | HTTP 200 with `ok:false` and a validation error; no session is created and `/api/host` stays unchanged. |
+| Add `cwd`, `shell`, `executable` or `credentials` to `session.create` params | HTTP 400 with `ok:false`; no session is created and `/api/host` stays unchanged. |
 | Run another host on the same project | Nonzero exit; the first host retains its lock. |
 
 Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Windows console Ctrl+C was checked manually: the child exited, the lock disappeared and the listener refused new connections. Automated EOF shutdown also passed.
@@ -181,7 +191,7 @@ For a safe trust check, run `node --import tsx --test test/server-permissions.te
 
 ```powershell
 npm run typecheck
-node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts test/server-shutdown.test.ts test/server-permissions.test.ts
+node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts test/server-shutdown.test.ts test/server-permissions.test.ts test/server-sse.test.ts
 npm test
 ```
 
