@@ -108,6 +108,16 @@ test('HTTP host authenticates, bounds requests and isolates concurrent request I
   assert(profiles.result.some((profile: { id: string }) => profile.id === 'implement'));
 }));
 
+test('static navigation needs no token while API routes remain private', { timeout: 15000 }, () => fixture(async host => {
+  const page = await http(host, '/?asset-version=1', undefined, { authorization: '' });
+  assert([200, 503].includes(page.status));
+  assert(!page.body.includes(host.token));
+  assert.equal((await http(host, '/', undefined, { host: 'attacker.example', authorization: '' })).status, 403);
+  for (const route of ['/api/host', '/api/events', '/api/missing'])
+    assert.equal((await http(host, route, undefined, { authorization: '' })).status, 401);
+  assert.equal((await http(host, '/api/missing', undefined, { accept: 'text/html' })).status, 404);
+}));
+
 test('SSE relays demo state and errors, replays latest state, and retains local sessions', { timeout: 30000 }, () => fixture(async (host, root) => {
   const stream = await events(host);
   let reconnected: Awaited<ReturnType<typeof events>> | undefined;

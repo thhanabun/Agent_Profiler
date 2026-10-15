@@ -1,8 +1,8 @@
 # Local Subharness host
 
-Steps 1–3 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
+Steps 1–4 of the [backend handoff](../docs/HANDOFF_BACKEND.md) are implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI.
 
-The default command now starts HTTP instead of the Step-1 terminal JSONL passthrough. There is no browser UI or static build integration yet.
+The default command starts HTTP instead of the Step-1 terminal JSONL passthrough. It serves a frontend build from the repository's fixed `web/dist` directory. The frontend itself is not present yet, so static page requests currently return HTTP 503 with build guidance.
 
 ## Start
 
@@ -21,7 +21,9 @@ Expected: one `host.ready` JSON line with `url`, a random `token`, canonical `cw
 
 ## HTTP contract
 
-All API endpoints require `Authorization: Bearer <token>`. Requests must use the exact printed `127.0.0.1` Host and either the same Origin or no Origin for non-browser tools. Foreign/null Origins, cross-site fetches and query parameters are rejected. No CORS wildcard is emitted.
+All requests, including static files, must use the exact printed `127.0.0.1` Host and either the same Origin or no Origin for non-browser tools. Foreign/null Origins and cross-site fetches are rejected. No CORS wildcard is emitted.
+
+All API endpoints, including SSE, require `Authorization: Bearer <token>` and reject query parameters. Static pages and assets do not require the token.
 
 | Endpoint | Request / response |
 |---|---|
@@ -38,6 +40,61 @@ Only references returned by `profiles.choices` may be supplied to `session.creat
 Requests are byte-limited to 64 KiB including the reserialized JSONL envelope and newline. At most 64 CLI requests and 16 event streams may be pending. A request times out after 30 seconds; a lost/timed-out mutation may already have run, so do not automatically retry it. IDs correlate replies, not idempotency receipts.
 
 Use streaming `fetch` for browser SSE because native `EventSource` cannot set an Authorization header. Keep the token in memory, never in URLs or browser storage. Reconnect receives readiness and the latest cached state; there is no event-history replay. Replace state snapshots rather than appending output. Slow event consumers are disconnected and can reconnect; stream disconnects do not stop the shared runtime.
+
+## Static frontend and development proxy
+
+The static root is `<repository>/web/dist`, independent of the selected project. It cannot be changed through HTTP or a startup option. GET and HEAD serve whitelisted assets; extensionless routes fall back to `index.html` only when the request accepts HTML. Missing assets return 404 once a build exists. Directory listings, dotfiles, source extensions, traversal and symlinks outside the build are blocked. Static responses use `nosniff`, `no-store` and a same-origin Content Security Policy.
+
+With the host running in Terminal A, check the current missing-build state from another terminal:
+
+```powershell
+Set-Location 'C:\KMUTT\Competition\Uhack'
+curl.exe -i http://127.0.0.1:5174/
+curl.exe -i http://127.0.0.1:5174/api/host
+curl.exe -i -H "Origin: https://example.com" http://127.0.0.1:5174/
+```
+
+Expected: 503 for the absent build, 401 for the API without a token, and 403 for the foreign Origin. Static requests do not bypass Host/Origin validation or reveal the token.
+
+When the frontend supplies `web/package.json` with a build script, build from the repository root:
+
+```powershell
+npm --prefix web run build
+curl.exe -I http://127.0.0.1:5174/
+curl.exe -i -H "Accept: text/html" http://127.0.0.1:5174/sessions/example
+curl.exe -i http://127.0.0.1:5174/assets/missing.js
+```
+
+Expected after a valid build: root HEAD returns 200 with no body, the HTML navigation returns the SPA entry point, and the missing JavaScript asset returns 404. The host reads the build on each request; no restart is needed. There is currently no root `web:build` script and no completed browser UI to verify.
+
+For development, merge this into the future `web/vite.config.ts`, retaining the UI's plugins and build settings. See [Vite's proxy options](https://vite.dev/config/server-options.html#server-proxy).
+
+```ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+    cors: false,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:5174',
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyReq', (outgoing, incoming) => {
+            if (incoming.headers.origin === 'http://127.0.0.1:5173')
+              outgoing.setHeader('Origin', 'http://127.0.0.1:5174');
+          });
+        },
+      },
+    },
+  },
+});
+```
+
+Open the dev UI at exactly `http://127.0.0.1:5173` and use relative `/api/...` URLs for requests and streamed SSE. The proxy changes Host and rewrites only that exact approved Origin; unknown/null Origins remain unchanged and the host rejects them. Do not add a blanket Origin rewrite, token URL or token persistence. The UI must accept the terminal token and keep it only in memory. Vite, its proxy and the full browser flow remain unverified until the frontend exists.
 
 ## Manual HTTP and SSE tests
 
@@ -94,8 +151,8 @@ To check persistence manually, restart with exactly the same `--cwd`, `--state-d
 
 ```powershell
 npm run typecheck
-node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts
+node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts
 npm test
 ```
 
-Tests use temporary projects and explicit demo mode. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation and stale-lock recovery after a simulated child crash. They do not call providers.
+Host tests use temporary projects and explicit demo mode. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation and stale-lock recovery after a simulated child crash. Static tests use a tiny temporary build to check MIME/GET/HEAD behavior, SPA fallback, missing-build guidance and path/symlink isolation. They do not call providers or verify a completed frontend.

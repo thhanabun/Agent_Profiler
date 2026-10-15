@@ -2,8 +2,12 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { requestSchema } from '../src/protocol.js';
 import { Bridge, type ProtocolEvent, type Request } from './bridge.js';
+import { serveStatic } from './static.js';
+
+const webRoot = fileURLToPath(new URL('../web/dist/', import.meta.url));
 
 class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -42,11 +46,15 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
       if (request.headers.host !== origin.slice(7) || (request.headers.origin !== undefined && request.headers.origin !== origin)
         || (request.headers['sec-fetch-site'] !== undefined && !['same-origin', 'none'].includes(String(request.headers['sec-fetch-site']))))
         throw new HttpError(403, 'Unexpected Host or Origin.');
-      const supplied = Buffer.from(request.headers.authorization ?? '');
-      if (supplied.length !== authorization.length || !timingSafeEqual(supplied, authorization)) throw new HttpError(401, 'Bearer token required.');
       if (stopping || bridge.failure) throw new HttpError(503, 'Host is stopping.');
       const url = new URL(request.url ?? '/', origin);
-      if (url.origin !== origin || url.search) throw new HttpError(400, 'Unexpected URL or query parameters.');
+      if (url.origin !== origin) throw new HttpError(400, 'Unexpected URL origin.');
+      if (url.pathname !== '/api' && !url.pathname.startsWith('/api/')) {
+        await serveStatic(request, response, webRoot); return;
+      }
+      const supplied = Buffer.from(request.headers.authorization ?? '');
+      if (supplied.length !== authorization.length || !timingSafeEqual(supplied, authorization)) throw new HttpError(401, 'Bearer token required.');
+      if (url.search) throw new HttpError(400, 'Unexpected query parameters.');
       if (request.method === 'GET' && url.pathname === '/api/host') {
         json(response, 200, { cwd, stateDir, demo, methods: (await bridge.ready).methods }); return;
       }
