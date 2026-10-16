@@ -8,6 +8,7 @@ export async function stopProcess(child: ChildProcess): Promise<void> {
     if (process.platform === 'win32') {
       const kill = spawn('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore', shell: false });
       kill.once('error', () => { child.kill(); });
+      kill.once('close', code => { if (code !== 0 && child.exitCode === null && child.signalCode === null) child.kill(); });
     } else {
       try { process.kill(-child.pid!, 'SIGTERM'); } catch { child.kill('SIGTERM'); }
       setTimeout(() => {
