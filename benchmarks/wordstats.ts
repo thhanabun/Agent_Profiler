@@ -74,11 +74,11 @@ console.log(JSON.stringify(checks));`;
 }
 
 async function main() {
-  if (process.env.SUBHARNESS_BENCHMARK_LIVE !== '1') throw new Error('Set SUBHARNESS_BENCHMARK_LIVE=1 to run real models. This consumes provider usage.');
-  const parent = path.resolve('.subharness/benchmarks'); await mkdir(parent, { recursive: true });
+  if (process.env.WORKERDECK_BENCHMARK_LIVE !== '1') throw new Error('Set WORKERDECK_BENCHMARK_LIVE=1 to run real models. This consumes provider usage.');
+  const parent = path.resolve('.workerdeck/benchmarks'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'wordstats-'));
   const profilesRoot = path.join(root, 'profiles');
-  const models = { opencode: process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free', codex: process.env.SUBHARNESS_TEST_CODEX_MODEL ?? 'gpt-6.1-sol' };
+  const models = { opencode: process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free', codex: process.env.WORKERDECK_TEST_CODEX_MODEL ?? 'gpt-6.1-sol' };
   for (const [source, id, model] of [['orchestrator', 'bench-planner', models.opencode], ['implement', 'bench-opencode', models.opencode], ['codex', 'bench-codex', models.codex]]) {
     const destination = path.join(profilesRoot, id!);
     await forkProfile(await loadProfile(path.join(builtinRoot, source!)), destination, id!);

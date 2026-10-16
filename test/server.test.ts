@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 async function project(work: (root: string) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'host project with spaces-'));
   try { await work(root); }
@@ -52,16 +52,16 @@ test('HTTP CLI fixes the project with spaces and releases its child lock on stdi
   try {
     const started = await ready();
     assert.equal(started.cwd, await realpath(root));
-    assert.equal(started.stateDir, path.join(started.cwd, '.subharness'));
+    assert.equal(started.stateDir, path.join(started.cwd, '.workerdeck'));
     assert.equal(started.demo, true);
     assert.equal(new URL(started.url).hostname, '127.0.0.1');
-    const lock = JSON.parse(await readFile(path.join(root, '.subharness/runner.lock'), 'utf8'));
+    const lock = JSON.parse(await readFile(path.join(root, '.workerdeck/runner.lock'), 'utf8'));
     assert(Number.isSafeInteger(lock.pid));
     assert.notEqual(lock.pid, host.pid);
     await list(started);
     host.stdin.end();
     assert.equal((await closed)[0], 0, stderr());
-    await assert.rejects(readFile(path.join(root, '.subharness/runner.lock')), { code: 'ENOENT' });
+    await assert.rejects(readFile(path.join(root, '.workerdeck/runner.lock')), { code: 'ENOENT' });
   } finally {
     host.stdin.end();
     await closed;
@@ -70,7 +70,7 @@ test('HTTP CLI fixes the project with spaces and releases its child lock on stdi
 }));
 
 test('local host reports a locked project without removing another owner lock', { timeout: 30000 }, () => project(async root => {
-  const stateRoot = path.join(root, '.subharness');
+  const stateRoot = path.join(root, '.workerdeck');
   await mkdir(stateRoot);
   const lock = JSON.stringify({ pid: process.pid });
   await writeFile(path.join(stateRoot, 'runner.lock'), lock);
@@ -78,7 +78,7 @@ test('local host reports a locked project without removing another owner lock', 
   try {
     host.stdin.end();
     assert.equal((await closed)[0], 1);
-    assert.match(stderr(), /Another Subharness process/);
+    assert.match(stderr(), /Another WorkerDeck process/);
     assert.equal(await readFile(path.join(stateRoot, 'runner.lock'), 'utf8'), lock);
   } finally { host.stdin.end(); await closed; output.close(); }
 }));
@@ -100,7 +100,7 @@ test('occupied HTTP port releases the new project lock and leaves the first host
     second = launch(['--cwd', other, '--port', new URL(started.url).port, '--demo']);
     assert.equal((await second.closed)[0], 1);
     assert.match(second.stderr(), /EADDRINUSE|address already in use/i);
-    await assert.rejects(readFile(path.join(other, '.subharness/runner.lock')), { code: 'ENOENT' });
+    await assert.rejects(readFile(path.join(other, '.workerdeck/runner.lock')), { code: 'ENOENT' });
     await list(started);
     assert.equal(first.host.exitCode, null);
   } finally {

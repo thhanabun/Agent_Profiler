@@ -94,7 +94,7 @@ test('host.error SSE events reach the controller and network failures give a use
   await readEventStream(chunks('data: {"event":"host.error","error":"Native host exited"}\n\n'), event => events.push(event));
   assert.deepEqual(events, [{ event: 'host.error', error: 'Native host exited' }]);
   const api = new HostApi(async () => { throw new TypeError('fetch failed'); });
-  await assert.rejects(api.bootstrap(), error => error instanceof HostApiError && error.kind === 'network' && /local Subharness host/.test(error.message));
+  await assert.rejects(api.bootstrap(), error => error instanceof HostApiError && error.kind === 'network' && /local WorkerDeck host/.test(error.message));
 });
 
 test('snapshots replace streamed output and ignore duplicate and decreasing sequence numbers', () => {

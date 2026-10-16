@@ -100,7 +100,7 @@ export function WorkspaceApp({ manager, initialTitle }: { manager: SessionManage
   const mode = manager.options.demo ? 'SIMULATION' : 'LIVE';
   const choice = screen === 'team' ? selected as ProfileChoice | undefined : undefined;
   return <Box flexDirection="column" paddingX={1} width={Math.max(30, size.columns)}>
-    <Text bold color="cyan">SUBHARNESS · {screen === 'sessions' ? 'SAVED SESSIONS' : 'NEW SESSION / TEAM'} · {mode}</Text>
+    <Text bold color="cyan">WORKERDECK · {screen === 'sessions' ? 'SAVED SESSIONS' : 'NEW SESSION / TEAM'} · {mode}</Text>
     <Text dimColor wrap="truncate">{redact(manager.options.cwd)}</Text>
     <Text>{screen === 'sessions' ? 'Select a saved session to open. Work resumes only when you send /resume or a message.'
       : step === 'orchestrator' ? '1/2 · Choose the orchestrator profile' : `2/2 · Choose workers · Orchestrator: @${orchestrator?.profile.manifest.id}`}</Text>

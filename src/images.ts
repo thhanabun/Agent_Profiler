@@ -8,6 +8,7 @@ import { profileSchema, type LoadedProfile } from './schema.js';
 import { writeJsonAtomic } from './storage.js';
 
 export const DIGEST = z.string().regex(/^sha256:[a-f0-9]{64}$/);
+// Preserve these OCI media types so images published before the rename still load.
 export const IMAGE_TYPE = 'application/vnd.subharness.image.v1';
 export const CONFIG_TYPE = 'application/vnd.subharness.image.config.v1+json';
 export const BUNDLE_TYPE = 'application/vnd.subharness.profile.v1+zip';
@@ -102,7 +103,7 @@ export async function resolveImage(store: string, reference: string): Promise<De
     return { mediaType: MANIFEST_TYPE, digest: parsed.digest, size };
   }
   const entry = (await index(store)).manifests.find(item => item.annotations?.['org.opencontainers.image.ref.name'] === reference);
-  if (!entry) throw new Error(`Image not installed: ${reference}. Run subharness pull ${reference} first.`);
+  if (!entry) throw new Error(`Image not installed: ${reference}. Run workerdeck pull ${reference} first.`);
   return entry;
 }
 

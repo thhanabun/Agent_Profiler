@@ -35,14 +35,14 @@ export type RunResult = { text: string; sessionId: string; structured?: unknown 
 export type Runner = (input: RunInput) => Promise<RunResult>;
 
 export function modelFor(profile: LoadedProfile): string | undefined {
-  const key = `SUBHARNESS_MODEL_${profile.manifest.id.toUpperCase().replaceAll('-', '_')}`;
+  const key = `WORKERDECK_MODEL_${profile.manifest.id.toUpperCase().replaceAll('-', '_')}`;
   return process.env[key] || profile.manifest.model;
 }
 
 export async function findOpenCode(): Promise<string> {
-  if (process.env.SUBHARNESS_OPENCODE_BIN) {
-    const executable = path.resolve(process.env.SUBHARNESS_OPENCODE_BIN);
-    if (/\.(?:cmd|bat|ps1)$/i.test(executable)) throw new Error('SUBHARNESS_OPENCODE_BIN must point to the native executable, not a shell shim.');
+  if (process.env.WORKERDECK_OPENCODE_BIN) {
+    const executable = path.resolve(process.env.WORKERDECK_OPENCODE_BIN);
+    if (/\.(?:cmd|bat|ps1)$/i.test(executable)) throw new Error('WORKERDECK_OPENCODE_BIN must point to the native executable, not a shell shim.');
     await access(executable);
     return executable;
   }
@@ -54,7 +54,7 @@ export async function findOpenCode(): Promise<string> {
       try { await access(candidate); return candidate; } catch { /* Try the next PATH location. */ }
     }
   }
-  throw new Error('OpenCode is missing. Install opencode-ai, authenticate with `opencode`, then run `subharness doctor`.');
+  throw new Error('OpenCode is missing. Install opencode-ai, authenticate with `opencode`, then run `workerdeck doctor`.');
 }
 
 
@@ -77,7 +77,7 @@ export async function runOpenCode(input: RunInput, launch: typeof spawn = spawn)
     } },
   };
   const env = { ...process.env, OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
-    OPENCODE_SERVER_PASSWORD: password, OPENCODE_SERVER_USERNAME: 'subharness' };
+    OPENCODE_SERVER_PASSWORD: password, OPENCODE_SERVER_USERNAME: 'workerdeck' };
   const executable = await findOpenCode();
   input.signal.throwIfAborted();
   const child = launch(executable, ['serve', '--hostname=127.0.0.1', '--port=0'], {
@@ -119,12 +119,12 @@ export async function runOpenCode(input: RunInput, launch: typeof spawn = spawn)
     child.stderr?.resume();
     child.on('error', () => {});
     const client = createOpencodeClient({ baseUrl: url, directory: input.cwd,
-      headers: { Authorization: `Basic ${Buffer.from(`subharness:${password}`).toString('base64')}` }, throwOnError: true });
+      headers: { Authorization: `Basic ${Buffer.from(`workerdeck:${password}`).toString('base64')}` }, throwOnError: true });
     let sessionId = input.sessionId;
     if (sessionId) {
       await client.session.get({ sessionID: sessionId });
     } else {
-      const session = await client.session.create({ title: `Subharness / ${input.profile.manifest.name}`, agent: 'relay' });
+      const session = await client.session.create({ title: `WorkerDeck / ${input.profile.manifest.name}`, agent: 'relay' });
       if (!session.data) throw new Error('OpenCode did not return a session.');
       sessionId = session.data.id;
     }
@@ -166,7 +166,7 @@ export async function runOpenCode(input: RunInput, launch: typeof spawn = spawn)
     })().catch(error => { if (!eventController?.signal.aborted && !input.signal.aborted) streamError = error instanceof Error ? error : new Error(String(error)); });
     const model = modelFor(input.profile);
     const slash = model?.indexOf('/') ?? -1;
-    if (model && slash < 1) throw new Error('OpenCode models must use provider/model. Set SUBHARNESS_MODEL_<PROFILE_ID> or edit profile.json.');
+    if (model && slash < 1) throw new Error('OpenCode models must use provider/model. Set WORKERDECK_MODEL_<PROFILE_ID> or edit profile.json.');
     const abortRequest = () => { void client.session.abort({ sessionID: sid }).catch(() => {}); };
     input.signal.addEventListener('abort', abortRequest, { once: true });
     try {
@@ -323,11 +323,11 @@ export async function inspectProfiles(profiles: LoadedProfile[]): Promise<Availa
       reason: 'Packaged Codex plugins are not supported yet.', action: 'Configure plugins natively or use a profile without bundled plugins.' });
     checks.push({ kind: 'environment', status: missing.length ? 'blocked' : 'passed',
       reason: missing.length ? `Missing: ${missing.join(', ')}` : 'All declared environment variables are set.',
-      ...(missing.length ? { action: 'Set the named variables in the environment that launches Subharness. Keep values out of profile bundles.' } : {}) });
+      ...(missing.length ? { action: 'Set the named variables in the environment that launches WorkerDeck. Keep values out of profile bundles.' } : {}) });
     checks.push({ kind: 'native', status: native.available ? 'passed' : 'blocked', reason: native.reason,
       ...(!native.available ? { action: profile.manifest.harness === 'opencode'
-        ? 'Install native OpenCode or fix SUBHARNESS_OPENCODE_BIN, then configure its provider with `opencode`.'
-        : profile.manifest.harness === 'codex' ? 'Install native Codex or fix SUBHARNESS_CODEX_BIN, then run `codex login`.'
+        ? 'Install native OpenCode or fix WORKERDECK_OPENCODE_BIN, then configure its provider with `opencode`.'
+        : profile.manifest.harness === 'codex' ? 'Install native Codex or fix WORKERDECK_CODEX_BIN, then run `codex login`.'
           : 'Run `claude auth login` or configure an API key/cloud provider in the local environment.' } : {}) });
     const blocked = checks.find(check => check.status === 'blocked');
     return [profile.manifest.id, { available: !blocked, reason: blocked ? [blocked.reason, blocked.action].filter(Boolean).join(' ') : native.reason, checks }];

@@ -2,6 +2,8 @@
 
 Environment: Windows, Node.js 26.4.0, OpenCode 1.19.0; dependencies pinned in package-lock.json. These results describe this machine, not cross-platform certification.
 
+The recorded evidence below predates the WorkerDeck rename, so its local artifact paths remain under `.subharness`; current runs use `.workerdeck` by default.
+
 ## Automated fixtures
 
 - `npm run typecheck`: passed.
@@ -112,8 +114,8 @@ ORAS 1.3.4 was downloaded from its official release and checked against the rele
 The registry regression is separately repeatable and **not part of `npm test`**:
 
 ```powershell
-$env:SUBHARNESS_ORAS_BIN = 'path\to\oras.exe'
-$env:SUBHARNESS_TEST_REGISTRY = '127.0.0.1:YOUR_LOCAL_PORT'
+$env:WORKERDECK_ORAS_BIN = 'path\to\oras.exe'
+$env:WORKERDECK_TEST_REGISTRY = '127.0.0.1:YOUR_LOCAL_PORT'
 node --import tsx --test test/registry.live.ts
 ```
 

@@ -6,18 +6,18 @@ import { test } from 'node:test';
 import { Bridge } from '../server/bridge.js';
 
 async function fixture(work: (bridge: Bridge) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'bounded bridge-'));
-  const previous = process.env.SUBHARNESS_IMAGE_STORE;
-  process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
+  const previous = process.env.WORKERDECK_IMAGE_STORE;
+  process.env.WORKERDECK_IMAGE_STORE = path.join(root, 'images');
   const bridge = new Bridge(root, path.join(root, 'state'), true);
   try { await bridge.ready; await work(bridge); }
   finally {
     try { await bridge.close(); }
     finally {
-      if (previous === undefined) delete process.env.SUBHARNESS_IMAGE_STORE;
-      else process.env.SUBHARNESS_IMAGE_STORE = previous;
+      if (previous === undefined) delete process.env.WORKERDECK_IMAGE_STORE;
+      else process.env.WORKERDECK_IMAGE_STORE = previous;
       assert(root.startsWith(parent + path.sep));
       await rm(root, { recursive: true, force: true });
     }

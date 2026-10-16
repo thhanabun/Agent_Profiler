@@ -1,5 +1,5 @@
 {
-  "name": "subharness-cli",
+  "name": "workerdeck",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,10 +8,11 @@
     "node": ">=24"
   },
   "bin": {
-    "subharness": "bin/subharness.mjs"
+    "workerdeck": "bin/workerdeck.mjs"
   },
   "scripts": {
     "start": "tsx src/cli.tsx",
+    "workerdeck": "tsx src/cli.tsx",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts",
     "web:dev": "vite --config web/vite.config.ts",

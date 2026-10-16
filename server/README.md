@@ -1,4 +1,4 @@
-# Local Subharness host
+# Local WorkerDeck host
 
 The integrated `server/` host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. The Project First React/TypeScript/Vite/Tailwind client under `web/` uses this host. `Engine`, `SessionManager`, native accounts and the local session store remain in the CLI; the host does not implement another agent runner.
 
@@ -16,7 +16,7 @@ npm run host -- --cwd /absolute/path/to/project --port 4180
 
 The host prints one `host.ready` JSON line containing its `url`, random per-start `token`, canonical `cwd`, `stateDir` and `demo` flag, then stays running. The host listens only after the CLI's `ready` event; the bootstrap's `ready:true` means transport initialization, not native/provider readiness. The token is a local host credential, not a provider API key.
 
-`--cwd` must be an existing directory. `--state-dir` is trusted startup configuration and defaults to `<cwd>/.subharness`. The default port is 5174; passing 4180 matches the checked-in Vite proxy. `--port 0` requests a free port. The browser shows the project path read-only and cannot change startup paths or native credentials.
+`--cwd` must be an existing directory. `--state-dir` is trusted startup configuration and defaults to `<cwd>/.workerdeck`. The default port is 5174; passing 4180 matches the checked-in Vite proxy. `--port 0` requests a free port. The browser shows the project path read-only and cannot change startup paths or native credentials.
 
 For an explicit offline simulation with separate state:
 

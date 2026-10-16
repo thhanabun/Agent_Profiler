@@ -10,9 +10,9 @@ import { pullImage, pushImage } from '../src/registry.js';
 import { loadTeam, lockTeam, pullTeam } from '../src/teams.js';
 
 test('real OCI registry: push/pull, immutable version guard, and locked team download', async () => {
-  const registry = process.env.SUBHARNESS_TEST_REGISTRY ?? '';
-  assert.match(registry, /^(localhost|127\.0\.0\.1):\d+$/, 'Set SUBHARNESS_TEST_REGISTRY to your loopback registry host:port.');
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const registry = process.env.WORKERDECK_TEST_REGISTRY ?? '';
+  assert.match(registry, /^(localhost|127\.0\.0\.1):\d+$/, 'Set WORKERDECK_TEST_REGISTRY to your loopback registry host:port.');
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'registry-'));
   try {
     const publisher = path.join(root, 'publisher'), recipient = path.join(root, 'recipient');

@@ -10,24 +10,24 @@ Authenticate with the native CLI if needed. Existing ChatGPT login works for thi
 
 ```sh
 codex login
-node bin/subharness.mjs doctor --harness codex
+node bin/workerdeck.mjs doctor --harness codex
 
 # OpenCode plans; either worker may be selected for each task.
-node bin/subharness.mjs run --orchestrator orchestrator --worker implement --worker codex --cwd /path/to/project
+node bin/workerdeck.mjs run --orchestrator orchestrator --worker implement --worker codex --cwd /path/to/project
 
 # Codex plans; OpenCode works.
-node bin/subharness.mjs run --orchestrator codex --worker implement --cwd /path/to/project
+node bin/workerdeck.mjs run --orchestrator codex --worker implement --cwd /path/to/project
 
 # Direct Codex chat, then reopen its saved configuration.
-node bin/subharness.mjs run codex --cwd /path/to/project
-node bin/subharness.mjs run --resume latest --cwd /path/to/project
+node bin/workerdeck.mjs run codex --cwd /path/to/project
+node bin/workerdeck.mjs run --resume latest --cwd /path/to/project
 ```
 
 Profiles contain their own instructions; fork the built-in Codex profile and give it planning instructions when using it primarily as an orchestrator. `--worker` limits the available pool, so these examples never select Claude. Normal orchestration lets the planner choose workers and dependencies; it does not enforce a fixed alternation.
 
-The built-in `codex` profile uses the native configured model by default. Set `SUBHARNESS_MODEL_CODEX` to an available native model ID, or write `model` into a custom manifest. OpenCode model IDs use `provider/model`; Codex accepts its native IDs. Restart/create a new session after changing the model, because saved configurations reject model drift.
+The built-in `codex` profile uses the native configured model by default. Set `WORKERDECK_MODEL_CODEX` to an available native model ID, or write `model` into a custom manifest. OpenCode model IDs use `provider/model`; Codex accepts its native IDs. Restart/create a new session after changing the model, because saved configurations reject model drift.
 
-If the native binary is outside PATH or behind a Windows npm shim, set `SUBHARNESS_CODEX_BIN` to its actual executable. `.cmd`, `.bat` and `.ps1` shims are rejected. There is no managed Codex installation in this MVP.
+If the native binary is outside PATH or behind a Windows npm shim, set `WORKERDECK_CODEX_BIN` to its actual executable. `.cmd`, `.bat` and `.ps1` shims are rejected. There is no managed Codex installation in this MVP.
 
 ## Skills, tools and permissions
 
@@ -38,26 +38,26 @@ If the native binary is outside PATH or behind a Windows npm shim, set `SUBHARNE
 - Structured MCP elicitation forms are currently declined because the terminal has no form UI. Unsupported server requests return a protocol error.
 - **Bundled Codex plugins are not supported yet.** A manifest declaring them fails with setup guidance instead of silently ignoring them. Plugins already configured in native Codex remain native inputs and are outside the image's declared source lock.
 
-Profile instructions are supplied as turn input, preserving native base/project instructions. Native app-server state stays in the normal Codex home; Subharness stores only its own source staging/checkpoints and references to native threads. Native runtimes may independently retain conversation history.
+Profile instructions are supplied as turn input, preserving native base/project instructions. Native app-server state stays in the normal Codex home; WorkerDeck stores only its own source staging/checkpoints and references to native threads. Native runtimes may independently retain conversation history.
 
 ## Images
 
 ```sh
-node bin/subharness.mjs build codex --tag myname/codex:1.0.0 --model YOUR_AVAILABLE_CODEX_MODEL
-node bin/subharness.mjs run myname/codex:1.0.0 --cwd /path/to/project
+node bin/workerdeck.mjs build codex --tag myname/codex:1.0.0 --model YOUR_AVAILABLE_CODEX_MODEL
+node bin/workerdeck.mjs run myname/codex:1.0.0 --cwd /path/to/project
 ```
 
 Inspect/fork/push/pull/team locks use the existing image commands. A Codex image packages its declared skill source and model/runtime requirements, not the CLI executable or authentication. A different CLI/platform/adapter version requires installing that version or rebuilding a new image.
 
 ## Repeat the live integration check
 
-The live check is separate from `npm test`, consumes model usage and retains reviewable artifacts under `.subharness/cross-harness/live-*`.
+The live check is separate from `npm test`, consumes model usage and retains reviewable artifacts under `.workerdeck/cross-harness/live-*`.
 
 ```powershell
-$env:SUBHARNESS_TEST_LIVE = '1'
+$env:WORKERDECK_TEST_LIVE = '1'
 # Optional overrides for models available on your machine:
-# $env:SUBHARNESS_TEST_OPENCODE_MODEL = 'provider/model'
-# $env:SUBHARNESS_TEST_CODEX_MODEL = 'native-model-id'
+# $env:WORKERDECK_TEST_OPENCODE_MODEL = 'provider/model'
+# $env:WORKERDECK_TEST_CODEX_MODEL = 'native-model-id'
 node --import tsx --test test/cross-harness.live.ts
 ```
 
@@ -66,20 +66,20 @@ It creates isolated profiles and a project path containing spaces, grants trust 
 ## Repeat native cancellation checks
 
 ```powershell
-$env:SUBHARNESS_TEST_CANCEL_LIVE = '1'
-# The same optional SUBHARNESS_TEST_OPENCODE_MODEL / SUBHARNESS_TEST_CODEX_MODEL overrides apply.
+$env:WORKERDECK_TEST_CANCEL_LIVE = '1'
+# The same optional WORKERDECK_TEST_OPENCODE_MODEL / WORKERDECK_TEST_CODEX_MODEL overrides apply.
 node --import tsx --test test/cancellation.live.ts
 ```
 
 This opt-in suite has six real worker/model cases: OpenCode and Codex, each stopped during text streaming, while a native permission request is pending, and during an approved long-running fixture tool. Each starts from a deterministic saved two-task plan, so it tests worker cancellation rather than model planning. It trusts only its generated fixture profile. The tool case approves only the parsed exact command `node long-tool.cjs`, which writes a local PID marker and starts a sleeping child. Other tool requests are stopped without approval.
 
-The suite calls the same `Engine.stop()` used by JSONL/TUI controls, checks native/fixture descendant PID disappearance before the engine becomes idle, validates saved stopped/pending task statuses and rejects stale approval responses. It retains `result.json`, events and session state under `.subharness/cancellation/`. Fixtures initialize a separate Git root so parent ignore rules cannot hide their changes; OpenCode config includes its schema to avoid native startup edits. Native runtimes need their normal user-home log/state write permissions; a sandbox that blocks them cannot run the live suite. See [TESTING.md](TESTING.md) for the observed results.
+The suite calls the same `Engine.stop()` used by JSONL/TUI controls, checks native/fixture descendant PID disappearance before the engine becomes idle, validates saved stopped/pending task statuses and rejects stale approval responses. It retains `result.json`, events and session state under `.workerdeck/cancellation/`. Fixtures initialize a separate Git root so parent ignore rules cannot hide their changes; OpenCode config includes its schema to avoid native startup edits. Native runtimes need their normal user-home log/state write permissions; a sandbox that blocks them cannot run the live suite. See [TESTING.md](TESTING.md) for the observed results.
 
 To repeat a manual TUI Ctrl+C check, prepare a known isolated session, launch it in an actual terminal, send `/resume`, wait for streamed text, press Ctrl+C once to stop and once more after idle to exit:
 
 ```powershell
 $terminalFixture = node --import tsx test/fixtures/terminal-prepare.ts codex | ConvertFrom-Json
-node bin/subharness.mjs run --resume $terminalFixture.sessionId --cwd $terminalFixture.cwd --state-dir $terminalFixture.stateRoot --store $terminalFixture.store --profiles $terminalFixture.profiles
+node bin/workerdeck.mjs run --resume $terminalFixture.sessionId --cwd $terminalFixture.cwd --state-dir $terminalFixture.stateRoot --store $terminalFixture.store --profiles $terminalFixture.profiles
 ```
 
 Use `opencode` instead of `codex` for the other adapter. This helper trusts only the generated fixture source and does not start a model until `/resume`. Actual Windows ConPTY checks for both adapters are recorded in TESTING.md. For hard-kill/reopen/retry checks, see [RECOVERY.md](RECOVERY.md).

@@ -17,44 +17,44 @@ import { getClaudeAuth } from './auth.js';
 import { createProfile, forkProfile, loadProfile, loadProfiles } from './profiles.js';
 import { id, profileSchema, type LoadedProfile } from './schema.js';
 import { WorkspaceApp } from './workspace-ui.js';
-import { acquireLock } from './storage.js';
+import { acquireLock, preferredDirectory } from './storage.js';
 import { buildImage, diffImages, forkImage, imageReference, listImages, loadImage } from './images.js';
 import { exportCatalog, findOras, pullImage, pushImage, searchCatalog } from './registry.js';
 import { loadTeam, lockTeam, pullTeam } from './teams.js';
 
-const help = `Subharness · native specialist profiles, one terminal thread
+const help = `WorkerDeck · native specialist profiles, one terminal thread
 
-  subharness [run] --cwd <project>
-  subharness run --orchestrator <profile-or-image> --worker <profile-or-image>
-  subharness demo --cwd <project>
-  subharness run --resume <session-id|latest> --cwd <project>
-  subharness run --headless --goal "Build a booking page"
-  subharness run <image-ref-or-profile-directory> --cwd <project>
+  workerdeck [run] --cwd <project>
+  workerdeck run --orchestrator <profile-or-image> --worker <profile-or-image>
+  workerdeck demo --cwd <project>
+  workerdeck run --resume <session-id|latest> --cwd <project>
+  workerdeck run --headless --goal "Build a booking page"
+  workerdeck run <image-ref-or-profile-directory> --cwd <project>
 
-  subharness build <profile> --tag owner/name:1.0.0 [--model provider/model]
-  subharness images
-  subharness inspect <image-ref>
-  subharness diff <before-image> <after-image>
-  subharness pull <registry/owner/name:tag>
-  subharness push <local-image> [--to registry/owner/name:tag]
-  subharness catalog --out <catalog.json>
-  subharness search <query> [--catalog <file-or-https-url>]
-  subharness team lock <team.json>
-  subharness team pull <team.json>
-  subharness team run <team.json> --cwd <project>
+  workerdeck build <profile> --tag owner/name:1.0.0 [--model provider/model]
+  workerdeck images
+  workerdeck inspect <image-ref>
+  workerdeck diff <before-image> <after-image>
+  workerdeck pull <registry/owner/name:tag>
+  workerdeck push <local-image> [--to registry/owner/name:tag]
+  workerdeck catalog --out <catalog.json>
+  workerdeck search <query> [--catalog <file-or-https-url>]
+  workerdeck team lock <team.json>
+  workerdeck team pull <team.json>
+  workerdeck team run <team.json> --cwd <project>
 
-  subharness profiles [search text]
-  subharness show <profile-id-or-directory>
-  subharness init <directory> --harness opencode|claude|codex
-  subharness check <profile-id-or-directory> [--json]
-  subharness fork <profile> --to <directory> [--id my-profile]
-  subharness export <profile> --out <file.agentpack>
-  subharness import <file.agentpack> --to <directory>
-  subharness sessions --cwd <project>
-  subharness session show <id|latest> --cwd <project>
-  subharness session rename <id|latest> --title "My session" --cwd <project>
-  subharness serve --stdio --cwd <project>
-  subharness doctor [--harness opencode|codex|claude]
+  workerdeck profiles [search text]
+  workerdeck show <profile-id-or-directory>
+  workerdeck init <directory> --harness opencode|claude|codex
+  workerdeck check <profile-id-or-directory> [--json]
+  workerdeck fork <profile> --to <directory> [--id my-profile]
+  workerdeck export <profile> --out <file.agentpack>
+  workerdeck import <file.agentpack> --to <directory>
+  workerdeck sessions --cwd <project>
+  workerdeck session show <id|latest> --cwd <project>
+  workerdeck session rename <id|latest> --title "My session" --cwd <project>
+  workerdeck serve --stdio --cwd <project>
+  workerdeck doctor [--harness opencode|codex|claude]
 
 Options:
   --profiles <directory>      Extra profiles (default: <state-dir>/profiles)
@@ -62,8 +62,8 @@ Options:
   --worker <ref>              Worker profile/image; repeat to select the team
   --title <text>              New session title
   --json                    JSON output for profiles/sessions/check
-  --state-dir <directory>     Local history/staging (default: <cwd>/.subharness)
-  --store <directory>         OCI image store (default: ~/.subharness/images)
+  --state-dir <directory>     Local history/staging (default: <cwd>/.workerdeck)
+  --store <directory>         OCI image store (default: ~/.workerdeck/images)
   --plain-http               Loopback development registry only
   --registry-config <file>    ORAS/Docker registry authentication config
   --demo                     Explicit offline simulation; no models or edits
@@ -71,13 +71,18 @@ Options:
   --goal <text>              Initial request
   --help                    Show this help
 
-Model overrides: SUBHARNESS_MODEL_ORCHESTRATOR, SUBHARNESS_MODEL_IMPLEMENT,
-SUBHARNESS_MODEL_UI, SUBHARNESS_MODEL_CODEX. OpenCode uses provider/model;
+Model overrides: WORKERDECK_MODEL_ORCHESTRATOR, WORKERDECK_MODEL_IMPLEMENT,
+WORKERDECK_MODEL_UI, WORKERDECK_MODEL_CODEX. OpenCode uses provider/model;
 Codex and Claude use their native model IDs.
 Live mode uses the configured providers and may incur charges.
 `;
 
 async function main(): Promise<void> {
+  // Keep existing local .env files working after the command rename.
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.startsWith('SUBHARNESS_') && value !== undefined && process.env[`WORKERDECK_${key.slice(11)}`] === undefined)
+      process.env[`WORKERDECK_${key.slice(11)}`] = value;
+  }
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     cwd: { type: 'string' }, profiles: { type: 'string' }, 'state-dir': { type: 'string' }, orchestrator: { type: 'string' }, worker: { type: 'string', multiple: true }, title: { type: 'string' }, json: { type: 'boolean' }, stdio: { type: 'boolean' },
     demo: { type: 'boolean' }, headless: { type: 'boolean' }, goal: { type: 'string' }, resume: { type: 'string' },
@@ -87,17 +92,18 @@ async function main(): Promise<void> {
   } });
   if (values.help) { process.stdout.write(help); return; }
   const cwd = await realpath(path.resolve(values.cwd ?? process.cwd()));
-  const stateRoot = path.resolve(values['state-dir'] ?? path.join(cwd, '.subharness'));
-  const store = path.resolve(values.store ?? (process.env.SUBHARNESS_IMAGE_STORE || path.join(homedir(), '.subharness', 'images')));
+  const stateRoot = path.resolve(values['state-dir'] ?? await preferredDirectory(path.join(cwd, '.workerdeck'), path.join(cwd, '.subharness')));
+  const defaultStore = await preferredDirectory(path.join(homedir(), '.workerdeck', 'images'), path.join(homedir(), '.subharness', 'images'));
+  const store = path.resolve(values.store ?? (process.env.WORKERDECK_IMAGE_STORE || defaultStore));
   const withStore = async <T,>(work: () => Promise<T>): Promise<T> => {
     const release = await acquireLock(store);
     try { return await work(); } finally { await release(); }
   };
   const extraRoot = path.resolve(values.profiles ?? path.join(stateRoot, 'profiles'));
   let command = positionals[0] ?? 'run';
-  const imageOnly = ['images', 'inspect', 'diff', 'pull', 'push', 'catalog', 'team', 'doctor', 'check', 'sessions', 'session', 'serve'].includes(command) || (command === 'search' && Boolean(values.catalog ?? process.env.SUBHARNESS_CATALOG));
+  const imageOnly = ['images', 'inspect', 'diff', 'pull', 'push', 'catalog', 'team', 'doctor', 'check', 'sessions', 'session', 'serve'].includes(command) || (command === 'search' && Boolean(values.catalog ?? process.env.WORKERDECK_CATALOG));
   const profiles = imageOnly ? [] : await loadProfiles(extraRoot);
-  if (values.model && command !== 'build') throw new Error('--model is a build option. Images lock the model; fork and rebuild to change it. Local profiles support SUBHARNESS_MODEL_<PROFILE_ID>.');
+  if (values.model && command !== 'build') throw new Error('--model is a build option. Images lock the model; fork and rebuild to change it. Local profiles support WORKERDECK_MODEL_<PROFILE_ID>.');
   const demo = values.demo || command === 'demo';
   const isImage = (value?: string): boolean => { if (!value) return false; try { imageReference(value); return true; } catch { return false; } };
   const getProfile = async (value: string | undefined): Promise<LoadedProfile> => {
@@ -122,9 +128,9 @@ async function main(): Promise<void> {
       return;
     }
     case 'search': {
-      const found = await withStore(() => searchCatalog(store, positionals.slice(1).join(' '), values.catalog ?? process.env.SUBHARNESS_CATALOG));
-      for (const entry of found) console.log(redact(`${entry.reference}\n  ${entry.name} · ${entry.harness} · ${entry.digest}\n  ${entry.description}${values.catalog || process.env.SUBHARNESS_CATALOG ? '\n  Catalog entry; pull and inspect to verify contents.' : ''}`));
-      if (values.catalog || process.env.SUBHARNESS_CATALOG) return;
+      const found = await withStore(() => searchCatalog(store, positionals.slice(1).join(' '), values.catalog ?? process.env.WORKERDECK_CATALOG));
+      for (const entry of found) console.log(redact(`${entry.reference}\n  ${entry.name} · ${entry.harness} · ${entry.digest}\n  ${entry.description}${values.catalog || process.env.WORKERDECK_CATALOG ? '\n  Catalog entry; pull and inspect to verify contents.' : ''}`));
+      if (values.catalog || process.env.WORKERDECK_CATALOG) return;
       // Local profile discovery remains available alongside the installed image catalog.
     }
     case 'profiles': {
@@ -253,7 +259,7 @@ async function main(): Promise<void> {
     }
     case 'run': case 'demo': break;
     case 'team': {
-      if (demo) throw new Error('Team runs use the locked images. For the built-in offline preview, use subharness demo without a team.');
+      if (demo) throw new Error('Team runs use the locked images. For the built-in offline preview, use workerdeck demo without a team.');
       if (!positionals[2] || !['lock', 'pull', 'run'].includes(positionals[1] ?? '')) throw new Error('Usage: team lock|pull|run <team.json>');
       if (positionals[1] === 'lock') {
         console.log(JSON.stringify(await withStore(() => lockTeam(store, path.resolve(positionals[2]!))), null, 2)); return;

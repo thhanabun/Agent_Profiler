@@ -22,14 +22,14 @@ async function descendants(pid: number): Promise<number[]> {
 }
 
 for (const harness of ['opencode', 'codex'] as const) test(`real ${harness}: hard-kill CLI, reopen without execution, retry native session once`, {
-  skip: process.env.SUBHARNESS_TEST_RECOVERY_LIVE !== '1' || process.platform !== 'win32', timeout: 240000,
+  skip: process.env.WORKERDECK_TEST_RECOVERY_LIVE !== '1' || process.platform !== 'win32', timeout: 240000,
 }, async context => {
-  const parent = path.resolve('.subharness/recovery'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/recovery'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, `${harness}-`)), cwd = path.join(root, 'project with spaces'), stateRoot = path.join(root, 'state');
   await mkdir(cwd); await promisify(execFile)('git', ['init', '--quiet'], { cwd, windowsHide: true });
   const source = path.join(root, 'profiles/worker'); await createProfile(source, 'recovery-worker', harness);
   const manifest = JSON.parse(await readFile(path.join(source, 'profile.json'), 'utf8'));
-  manifest.model = harness === 'opencode' ? process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' : process.env.SUBHARNESS_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
+  manifest.model = harness === 'opencode' ? process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' : process.env.WORKERDECK_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
   manifest.skills = []; manifest.instructions = 'Authorized isolated recovery test. Follow YOUR TASK. Do not use tools, edit files, call integrations or spawn subagents. If shared conversation contains a system message beginning Recovered partial output, return exactly RECOVERY_OK instead of repeating the long response.';
   await writeFile(path.join(source, 'profile.json'), JSON.stringify(manifest));
   await writeFile(path.join(cwd, 'completed.txt'), 'PRESERVE_COMPLETED\n');
@@ -41,7 +41,7 @@ for (const harness of ['opencode', 'codex'] as const) test(`real ${harness}: har
       task('dependent', 'pending', ['interrupted'], 'Return exactly RECOVERY_OK without tools.')], messages: [], nativeSessions: {}, diffs: { completed: 'PRESERVED_DIFF' } });
   await new Engine({ cwd, stateRoot, profiles: [profile], session }).flush();
   await writeFile(path.join(stateRoot, 'trust.json'), JSON.stringify([profile.checksum])); // Exact generated source only.
-  const child = spawn(process.execPath, [path.resolve('bin/subharness.mjs'), 'serve', '--stdio', '--cwd', cwd, '--state-dir', stateRoot, '--store', path.join(root, 'images'), '--profiles', path.join(root, 'profiles')], { windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [path.resolve('bin/workerdeck.mjs'), 'serve', '--stdio', '--cwd', cwd, '--state-dir', stateRoot, '--store', path.join(root, 'images'), '--profiles', path.join(root, 'profiles')], { windowsHide: true, shell: false, stdio: ['pipe', 'pipe', 'pipe'] });
   const messages: any[] = []; let buffer = '', stderr = '', owned: number[] = [], passed = false, cleanupOwned = true;
   const exited = new Promise<void>(resolve => { child.once('close', () => resolve()); });
   child.stdout.setEncoding('utf8'); child.stdout.on('data', chunk => { buffer += chunk; let end; while ((end = buffer.indexOf('\n')) >= 0) { messages.push(JSON.parse(buffer.slice(0, end))); buffer = buffer.slice(end + 1); } });

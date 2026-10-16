@@ -1,6 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+export async function preferredDirectory(current: string, legacy: string): Promise<string> {
+  for (const directory of [current, legacy]) {
+    try {
+      if (!(await stat(directory)).isDirectory()) throw new Error(`Expected a directory: ${directory}`);
+      return directory;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  return current;
+}
 
 export async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
@@ -28,8 +40,8 @@ export async function acquireLock(root: string): Promise<() => Promise<void>> {
         if ((signalError as NodeJS.ErrnoException).code === 'ESRCH') { await unlink(lock); continue; }
         throw signalError;
       }
-      throw new Error(`Another Subharness process (${saved.pid}) owns ${root}. Close it before retrying.`);
+      throw new Error(`Another WorkerDeck process (${saved.pid}) owns ${root}. Close it before retrying.`);
     }
   }
-  throw new Error('Could not acquire the Subharness lock.');
+  throw new Error('Could not acquire the WorkerDeck lock.');
 }

@@ -91,7 +91,7 @@ export async function importBundle(input: string, target: string): Promise<strin
     throw new Error(`Destination already exists: ${absoluteTarget}`);
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   await mkdir(path.dirname(absoluteTarget), { recursive: true });
-  const temp = await mkdtemp(path.join(path.dirname(absoluteTarget), '.subharness-import-'));
+  const temp = await mkdtemp(path.join(path.dirname(absoluteTarget), '.workerdeck-import-'));
   try {
     for (const [name, content] of Object.entries(files)) {
       const dest = safePath(temp, name);

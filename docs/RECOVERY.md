@@ -9,7 +9,7 @@ The adapters cancel the native request and terminate their harness process. Wind
 ## Reopen after a crash
 
 ```sh
-node bin/subharness.mjs run --resume latest --cwd /path/to/project
+node bin/workerdeck.mjs run --resume latest --cwd /path/to/project
 ```
 
 1. The existing project lock prevents two hosts from executing the same state directory. After a hard crash, a lock whose process no longer exists is reclaimed. A live or invalid lock is not removed automatically.
@@ -39,7 +39,7 @@ node --import tsx --test test/recovery.test.ts
 The Windows live suite hard-kills the actual CLI bridge while a real native worker streams, verifies its observed child processes exit, then reopens/retries with the same native ID. Plans include a seeded completed prerequisite; only the interrupted task and its dependent execute after retry. It consumes provider usage and needs native user-home log/state access:
 
 ```powershell
-$env:SUBHARNESS_TEST_RECOVERY_LIVE = '1'
+$env:WORKERDECK_TEST_RECOVERY_LIVE = '1'
 node --import tsx --test test/recovery.live.ts
 ```
 

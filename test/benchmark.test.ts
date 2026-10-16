@@ -5,7 +5,7 @@ import path from 'node:path';
 import { verifyWordstats } from '../benchmarks/wordstats.js';
 
 test('wordstats benchmark checks Unicode, newline rules and CLI behavior without model calls', async () => {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'benchmark-'));
   try {
     await writeFile(path.join(root, 'stats.mjs'), `export function analyze(text) { return {characters:[...text].length,words:text.trim()?text.trim().split(/\\s+/u).length:0,lines:text?text.split(/\\r\\n|\\r|\\n/).length-(/(?:\\r\\n|\\r|\\n)$/.test(text)?1:0):0}; }`);

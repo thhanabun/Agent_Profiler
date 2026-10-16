@@ -3,10 +3,10 @@ import type { ProfileChoiceSummary, ProfileReadiness, ProtocolRequest, ProtocolR
 import { isView, sameHost, HostApi, HostApiError, SessionSnapshots, type Bootstrap, type RequestParams } from './api.js';
 
 export type CreateParams = Extract<ProtocolRequest, { method: 'session.create' }>['params'];
-export type SubharnessCommand = 'session.stop' | 'session.pause' | 'session.resume' | 'session.retry' | 'session.assign' | 'request.respond' | 'session.rename';
-export type CommandParams<M extends SubharnessCommand> = Omit<RequestParams<M>, 'sessionId'>;
-type CommandArguments<M extends SubharnessCommand> = {} extends CommandParams<M> ? [params?: CommandParams<M>] : [params: CommandParams<M>];
-export type SubharnessController = {
+export type WorkerDeckCommand = 'session.stop' | 'session.pause' | 'session.resume' | 'session.retry' | 'session.assign' | 'request.respond' | 'session.rename';
+export type CommandParams<M extends WorkerDeckCommand> = Omit<RequestParams<M>, 'sessionId'>;
+type CommandArguments<M extends WorkerDeckCommand> = {} extends CommandParams<M> ? [params?: CommandParams<M>] : [params: CommandParams<M>];
+export type WorkerDeckController = {
   bootstrap: Bootstrap | null;
   connection: 'connecting' | 'connected' | 'reconnecting' | 'offline';
   view: View | null;
@@ -24,7 +24,7 @@ export type SubharnessController = {
   create(params: CreateParams): Promise<View>;
   open(id: string): Promise<View>;
   submit(text: string): Promise<void>;
-  command<M extends SubharnessCommand>(method: M, ...args: CommandArguments<M>): Promise<void>;
+  command<M extends WorkerDeckCommand>(method: M, ...args: CommandArguments<M>): Promise<void>;
 };
 
 const reason = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -38,9 +38,9 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function useSubharness(): SubharnessController {
+export function useWorkerDeck(): WorkerDeckController {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [connection, setConnection] = useState<SubharnessController['connection']>('connecting');
+  const [connection, setConnection] = useState<WorkerDeckController['connection']>('connecting');
   const [view, setView] = useState<View | null>(null);
   const [sessions, setSessions] = useState<ProtocolResults['session.list']>([]);
   const [profiles, setProfiles] = useState<ProfileChoiceSummary[]>([]);
@@ -304,7 +304,7 @@ export function useSubharness(): SubharnessController {
   const currentSession = useCallback(() => {
     if (snapshots.current.switching) throw new HostApiError('Wait for the conversation to finish opening.');
     if (!snapshots.current.activeId) throw new HostApiError('Open or create a conversation before sending a message.');
-    if (!startup.current?.ready) throw new HostApiError('The local Subharness host is not ready. Reconnect and try again.');
+    if (!startup.current?.ready) throw new HostApiError('The local WorkerDeck host is not ready. Reconnect and try again.');
     return snapshots.current.activeId;
   }, []);
   const submit = useCallback((text: string) => track(async signal => {
@@ -315,7 +315,7 @@ export function useSubharness(): SubharnessController {
     await api.current!.rpc('session.submit', { sessionId, text: trimmed }, signal);
     // An accepted response starts work. Only later snapshots describe its progress or completion.
   }), [currentSession, track]);
-  const command = useCallback(async <M extends SubharnessCommand>(method: M, ...args: CommandArguments<M>): Promise<void> => {
+  const command = useCallback(async <M extends WorkerDeckCommand>(method: M, ...args: CommandArguments<M>): Promise<void> => {
     await track(async signal => {
       const sessionId = currentSession();
       await api.current!.rpc(method, { ...args[0], sessionId } as RequestParams<M>, signal);

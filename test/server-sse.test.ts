@@ -19,7 +19,7 @@ async function within<T>(promise: Promise<T>, milliseconds: number, message: str
 }
 
 test('pipelined SSE reserves capacity, releases socket slots and lets the CLI exit', { timeout: 45000 }, async () => {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'pipelined SSE host with spaces-'));
   // Queued SSE responses cannot reach the wire behind the first endless response.
@@ -43,7 +43,7 @@ test('pipelined SSE reserves capacity, releases socket slots and lets the CLI ex
     fileURLToPath(new URL('../server/index.ts', import.meta.url)), '--cwd', root, '--port', '0', '--demo',
   ], {
     cwd: fileURLToPath(new URL('..', import.meta.url)), stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true,
-    env: { ...process.env, SUBHARNESS_IMAGE_STORE: path.join(root, 'images') },
+    env: { ...process.env, WORKERDECK_IMAGE_STORE: path.join(root, 'images') },
   });
   const closed = once(child, 'close');
   void closed.catch(() => {});
@@ -62,7 +62,7 @@ test('pipelined SSE reserves capacity, releases socket slots and lets the CLI ex
   try {
     const ready = await next();
     assert.equal(ready.event, 'host.ready');
-    runtimePid = JSON.parse(await readFile(path.join(root, '.subharness/runner.lock'), 'utf8')).pid;
+    runtimePid = JSON.parse(await readFile(path.join(root, '.workerdeck/runner.lock'), 'utf8')).pid;
     const origin = new URL(ready.url);
     socket = connect(Number(origin.port), origin.hostname);
     socket.on('error', () => {});
@@ -97,13 +97,13 @@ test('pipelined SSE reserves capacity, releases socket slots and lets the CLI ex
     child.stdin.end();
     assert.equal((await within(closed, 10000, 'SSE heartbeats kept the CLI alive after shutdown.'))[0], 0, stderr);
     await within(drained, 1000, 'SSE streams did not end during CLI shutdown.');
-    await assert.rejects(readFile(path.join(root, '.subharness/runner.lock')), { code: 'ENOENT' });
+    await assert.rejects(readFile(path.join(root, '.workerdeck/runner.lock')), { code: 'ENOENT' });
   } finally {
     socket?.destroy(); controller.abort(); child.stdin.end();
     if (child.exitCode === null && child.signalCode === null
       && !await Promise.race([closed.then(() => true), delay(1000, false)])) {
       child.kill('SIGKILL'); await closed;
-      const lock = JSON.parse(await readFile(path.join(root, '.subharness/runner.lock'), 'utf8').catch(() => 'null'));
+      const lock = JSON.parse(await readFile(path.join(root, '.workerdeck/runner.lock'), 'utf8').catch(() => 'null'));
       if (runtimePid && lock?.pid === runtimePid) {
         try { process.kill(runtimePid, 'SIGKILL'); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }

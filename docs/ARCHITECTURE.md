@@ -1,6 +1,6 @@
 # Profiles, sessions and native runs
 
-This document describes the current Subharness runtime. For the web client and local Node host, see [system overview](SYSTEM_OVERVIEW.md), the [web README](../web/README.md), and the [UI protocol](UI_PROTOCOL.md).
+This document describes the current WorkerDeck runtime. For the web client and local Node host, see the [web README](../web/README.md) and the [UI protocol](UI_PROTOCOL.md).
 
 An **Agent Profile** describes one harness, model, instructions, skills and plugins. An **image** distributes a profile with its source checksum and native runtime requirements. A **session** selects the profiles and assigns their roles. A **run** records one native harness invocation, including planner calls and retry attempts.
 
@@ -22,16 +22,16 @@ flowchart LR
 
 ```sh
 # Claude leads; OpenCode implements and reviews.
-node bin/subharness.mjs run --orchestrator ui --worker implement --worker review --title "Feature work" --cwd /path/to/project
+node bin/workerdeck.mjs run --orchestrator ui --worker implement --worker review --title "Feature work" --cwd /path/to/project
 
 # Source directories and locally installed images work in either role.
-node bin/subharness.mjs run --orchestrator ./my-planner --worker owner/builder:1.0.0 --cwd /path/to/project
+node bin/workerdeck.mjs run --orchestrator ./my-planner --worker owner/builder:1.0.0 --cwd /path/to/project
 
 # Open one profile directly, without planning/delegation.
-node bin/subharness.mjs run ui --cwd /path/to/project
+node bin/workerdeck.mjs run ui --cwd /path/to/project
 
 # Restore the saved profiles, models, roles and exact image digests.
-node bin/subharness.mjs run --resume latest --cwd /path/to/project
+node bin/workerdeck.mjs run --resume latest --cwd /path/to/project
 ```
 
 The `ui` example reuses its existing Claude model and UI skill. For daily use, fork it and give the planner appropriate planning instructions/capabilities. Changing roles does not rewrite the profile's instructions. Live Claude execution requires working native authentication.

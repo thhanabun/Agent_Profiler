@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { digest } from './profiles.js';
 
 const exec = promisify(execFile);
-const privatePath = /(^|[\\/])(?:\.git|\.subharness|node_modules|\.env(?:\..*)?|auth\.json|\.?credentials(?:\..*)?|.*\.(?:pem|key))($|[\\/])/i;
+const privatePath = /(^|[\\/])(?:\.git|\.workerdeck|\.subharness|node_modules|\.env(?:\..*)?|auth\.json|\.?credentials(?:\..*)?|.*\.(?:pem|key))($|[\\/])/i;
 
 export async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await exec('git', ['--no-pager', ...args], { cwd, encoding: 'utf8', maxBuffer: 2 * 1024 * 1024, timeout: 15000, windowsHide: true });

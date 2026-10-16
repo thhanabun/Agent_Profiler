@@ -1,6 +1,6 @@
 # Project First web workspace
 
-The integrated React + TypeScript + Vite + Tailwind client uses the existing Subharness sessions and native harnesses through the local `server/` HTTP host. Its Project First screen has the current project, one composer, and optional team/context controls. Saved chats and task/run/profile/file-diff inspectors open when needed. English and Thai are supported.
+The integrated React + TypeScript + Vite + Tailwind client uses the existing WorkerDeck sessions and native harnesses through the local `server/` HTTP host. Its Project First screen has the current project, one composer, and optional team/context controls. Saved chats and task/run/profile/file-diff inspectors open when needed. English and Thai are supported.
 
 ## Start
 

@@ -151,7 +151,7 @@ export function App({ engine, onNavigate }: { engine: Engine; onNavigate?: (kind
   const after = inputChars.slice(cursor + 1, visibleStart + columns - 8).join('');
 
   return <Box flexDirection="column" height={Math.max(14, size.rows)} width={columns}>
-    <Box justifyContent="space-between"><Text bold color="cyan"> SUBHARNESS <Text dimColor>native specialists, one thread</Text></Text><Text color={view.session.demo ? 'yellow' : 'green'}>{view.session.demo ? 'SIMULATION · no model calls' : 'LIVE'} </Text></Box>
+    <Box justifyContent="space-between"><Text bold color="cyan"> WORKERDECK <Text dimColor>native specialists, one thread</Text></Text><Text color={view.session.demo ? 'yellow' : 'green'}>{view.session.demo ? 'SIMULATION · no model calls' : 'LIVE'} </Text></Box>
     <Text dimColor wrap="truncate"> {clean(view.session.cwd)} · {clean(view.session.title)} · {view.status} · session {view.session.id}</Text>
     <Box flexDirection="row" height={height}>
       {leftWidth > 0 && <Panel title={`FLOW · ${tasks.filter(item => item.status === 'completed').length}/${tasks.length}`} width={leftWidth} height={height} active={focus === 0}>

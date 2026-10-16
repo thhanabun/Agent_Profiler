@@ -192,9 +192,9 @@ test('denying live profile trust starts no harness', async () => temp(async root
 }));
 
 test('terminal output strips escape sequences and known environment secrets', () => {
-  process.env.SUBHARNESS_TEST_SECRET = 'test-super-private-value';
+  process.env.WORKERDECK_TEST_SECRET = 'test-super-private-value';
   try { assert.equal(redact('\x1b[31mtest-super-private-value\x1b[0m'), '[redacted]'); }
-  finally { delete process.env.SUBHARNESS_TEST_SECRET; }
+  finally { delete process.env.WORKERDECK_TEST_SECRET; }
 });
 
 test('ordinary chat has no worker tasks and saved memory/persona reach the next harness turn', async () => temp(async root => {
@@ -295,7 +295,7 @@ test('task diffs include new files and exclude earlier task edits to the same fi
 }));
 
 test('session checkpoints redact known secrets in goals and task metadata', async () => temp(async root => {
-  process.env.SUBHARNESS_TEST_SECRET = 'test-secret-must-not-save';
+  process.env.WORKERDECK_TEST_SECRET = 'test-secret-must-not-save';
   try {
     const engine = new Engine({ cwd: root, stateRoot: path.join(root, 'state'), profiles: await loadProfiles(), demo: true,
       runner: async () => ({ text: '', structured: { summary: 'test-secret-must-not-save', tasks: [] }, sessionId: 'p' }) });
@@ -303,7 +303,7 @@ test('session checkpoints redact known secrets in goals and task metadata', asyn
     const file = await readFile(path.join(root, 'state', 'sessions', `${engine.state.session.id}.json`), 'utf8');
     assert.doesNotMatch(file, /test-secret-must-not-save/);
     assert.match(file, /redacted/);
-  } finally { delete process.env.SUBHARNESS_TEST_SECRET; }
+  } finally { delete process.env.WORKERDECK_TEST_SECRET; }
 }));
 
 test('direction sent during a chat-only planning response is saved and processed', async () => temp(async root => {
@@ -331,7 +331,7 @@ test('direction sent during a chat-only planning response is saved and processed
 }));
 
 test('Claude readiness accepts local API/cloud configuration without exposing a key', async () => {
-  const keys = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'CLAUDE_CODE_USE_ANTHROPIC_AWS', 'SUBHARNESS_CLAUDE_BIN'];
+  const keys = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY', 'CLAUDE_CODE_USE_ANTHROPIC_AWS', 'WORKERDECK_CLAUDE_BIN'];
   const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
     for (const key of keys) delete process.env[key];
@@ -345,7 +345,7 @@ test('Claude readiness accepts local API/cloud configuration without exposing a 
     assert.equal(claudeCloudConfigured(), false);
     process.env.CLAUDE_CODE_USE_BEDROCK = '1';
     assert.equal((await getClaudeAuth()).method, 'cloud');
-    process.env.SUBHARNESS_CLAUDE_BIN = path.resolve('.subharness', 'missing-native-claude-fixture.exe');
+    process.env.WORKERDECK_CLAUDE_BIN = path.resolve('.workerdeck', 'missing-native-claude-fixture.exe');
     const readiness = await inspectProfiles(await loadProfiles());
     assert.equal(readiness.ui!.available, false);
     assert.match(readiness.ui!.reason, /not found/);

@@ -10,13 +10,13 @@ import { loadProfile, builtinRoot } from '../src/profiles.js';
 import type { RunInput } from '../src/adapters.js';
 
 async function fixture(work: (input: RunInput) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'codex-'));
-  const previous = process.env.SUBHARNESS_CODEX_BIN;
-  process.env.SUBHARNESS_CODEX_BIN = process.execPath;
+  const previous = process.env.WORKERDECK_CODEX_BIN;
+  process.env.WORKERDECK_CODEX_BIN = process.execPath;
   try { await work({ profile: await loadProfile(path.join(builtinRoot, 'codex')), cwd: root, stateRoot: path.join(root, 'state'), prompt: 'Fixture',
     signal: new AbortController().signal, ask: async () => 'no', onEvent: () => {} }); }
-  finally { if (previous === undefined) delete process.env.SUBHARNESS_CODEX_BIN; else process.env.SUBHARNESS_CODEX_BIN = previous; await rm(root, { recursive: true, force: true }); }
+  finally { if (previous === undefined) delete process.env.WORKERDECK_CODEX_BIN; else process.env.WORKERDECK_CODEX_BIN = previous; await rm(root, { recursive: true, force: true }); }
 }
 function server(handle: (message: any, reply: (message: unknown) => void) => void) {
   const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null, signalCode: null });
@@ -106,9 +106,9 @@ test('Codex stop interrupts a pending native turn and handles process failure', 
 }));
 
 test('Codex native executable discovery rejects shell shims', async () => {
-  const previous = process.env.SUBHARNESS_CODEX_BIN;
-  try { process.env.SUBHARNESS_CODEX_BIN = 'unsafe.cmd'; await assert.rejects(findCodex(), /native executable/); }
-  finally { if (previous === undefined) delete process.env.SUBHARNESS_CODEX_BIN; else process.env.SUBHARNESS_CODEX_BIN = previous; }
+  const previous = process.env.WORKERDECK_CODEX_BIN;
+  try { process.env.WORKERDECK_CODEX_BIN = 'unsafe.cmd'; await assert.rejects(findCodex(), /native executable/); }
+  finally { if (previous === undefined) delete process.env.WORKERDECK_CODEX_BIN; else process.env.WORKERDECK_CODEX_BIN = previous; }
 });
 
 test('Codex file approval presents the native proposed paths and diffs', () => fixture(async input => {

@@ -5,7 +5,7 @@ Launch the bridge as a child process from a trusted local desktop/backend:
 ```js
 import { spawn } from 'node:child_process';
 const child = spawn(process.execPath, [
-  '/absolute/path/to/U-hack/bin/subharness.mjs', 'serve', '--stdio',
+  '/absolute/path/to/U-hack/bin/workerdeck.mjs', 'serve', '--stdio',
   '--cwd', '/absolute/path/to/project',
 ], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, shell: false });
 ```

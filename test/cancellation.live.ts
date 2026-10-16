@@ -1,4 +1,4 @@
-// Opt-in real model checks; excluded from npm test. Artifacts stay in .subharness/cancellation.
+// Opt-in real model checks; excluded from npm test. Artifacts stay in .workerdeck/cancellation.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { spawn, execFile, type ChildProcess } from 'node:child_process';
@@ -15,16 +15,16 @@ import { stopProcess } from '../src/process.js';
 
 for (const harness of ['opencode', 'codex'] as const) for (const phase of ['streaming', 'permission', 'tool'] as const) {
   test(`real ${harness}: stop while ${phase}, terminate native process and block dependent work`, {
-    skip: process.env.SUBHARNESS_TEST_CANCEL_LIVE !== '1', timeout: 150000,
+    skip: process.env.WORKERDECK_TEST_CANCEL_LIVE !== '1', timeout: 150000,
   }, async context => {
-    const parent = path.resolve('.subharness/cancellation'); await mkdir(parent, { recursive: true });
+    const parent = path.resolve('.workerdeck/cancellation'); await mkdir(parent, { recursive: true });
     const root = await mkdtemp(path.join(parent, `${harness}-${phase}-`));
     const cwd = path.join(root, 'project with spaces'), stateRoot = path.join(root, 'state'), source = path.join(root, 'profile');
     await mkdir(cwd); await promisify(execFile)('git', ['init', '--quiet'], { cwd, windowsHide: true });
     await createProfile(source, `cancel-${harness}`, harness);
     const manifest = JSON.parse(await readFile(path.join(source, 'profile.json'), 'utf8'));
-    manifest.model = harness === 'opencode' ? process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free'
-      : process.env.SUBHARNESS_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
+    manifest.model = harness === 'opencode' ? process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free'
+      : process.env.WORKERDECK_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
     manifest.instructions = 'This is an authorized cancellation test in an isolated fixture. Follow only the exact task. Do not edit files, use integrations/network tools, spawn subagents, or commit/publish anything. A controller will stop the task.';
     manifest.skills = [];
     await writeFile(path.join(source, 'profile.json'), JSON.stringify(manifest, null, 2));

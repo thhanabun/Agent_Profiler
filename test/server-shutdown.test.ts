@@ -18,12 +18,12 @@ async function post(host: Host, method: string, params: unknown) {
 }
 
 test('host shutdown stops active demo work, flushes partial state and permits reopening', { timeout: 30000 }, async () => {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'active host shutdown with spaces-'));
   const stateDir = path.join(root, 'saved state with spaces');
-  const previous = process.env.SUBHARNESS_IMAGE_STORE;
-  process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
+  const previous = process.env.WORKERDECK_IMAGE_STORE;
+  process.env.WORKERDECK_IMAGE_STORE = path.join(root, 'images');
   const hosts: Host[] = [];
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const open = async () => {
@@ -76,8 +76,8 @@ test('host shutdown stops active demo work, flushes partial state and permits re
     await reader?.cancel().catch(() => {});
     try { await Promise.allSettled(hosts.map(host => host.close())); }
     finally {
-      if (previous === undefined) delete process.env.SUBHARNESS_IMAGE_STORE;
-      else process.env.SUBHARNESS_IMAGE_STORE = previous;
+      if (previous === undefined) delete process.env.WORKERDECK_IMAGE_STORE;
+      else process.env.WORKERDECK_IMAGE_STORE = previous;
       assert(root.startsWith(parent + path.sep));
       await rm(root, { recursive: true, force: true });
     }

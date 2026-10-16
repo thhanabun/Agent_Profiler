@@ -6,7 +6,7 @@ import { profileSchema, type LoadedProfile, type Profile } from './schema.js';
 
 export const builtinRoot = fileURLToPath(new URL('../profiles/', import.meta.url));
 export const digest = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
-const sensitive = /(^|\/)(?:\.env(?:\..*)?|auth\.json|\.?credentials(?:\..*)?|sessions?|memory(?:\.json)?|node_modules|\.git|\.subharness|.*\.(?:pem|key))($|\/)/i;
+const sensitive = /(^|\/)(?:\.env(?:\..*)?|auth\.json|\.?credentials(?:\..*)?|sessions?|memory(?:\.json)?|node_modules|\.git|\.workerdeck|\.subharness|.*\.(?:pem|key))($|\/)/i;
 
 export function safePath(root: string, name: string): string {
   if (!name || name.includes('\\') || name.includes(':') || /[\x00-\x1f\x7f<>"|?*]/.test(name) || name.startsWith('/') ||

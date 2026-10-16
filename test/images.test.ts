@@ -24,7 +24,7 @@ test('bundle bytes are independent of input ordering and local timezone', () => 
   } finally { if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved; }
 });
 async function fixture(work: (root: string, store: string, source: string) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'images-'));
   const source = path.join(root, 'source');
   try { await createProfile(source, 'fixture-builder', 'opencode'); await work(root, path.join(root, 'store with spaces'), source); }
@@ -131,7 +131,7 @@ test('image builds reject changed sources and external package dependency declar
 
 test('locked images reject model environment overrides before launching the native runtime', () => fixture(async (_root, store, source) => {
   const built = await buildImage(store, await loadProfile(source), 'alice/builder:1', { runtime, model: 'provider/model' });
-  const key = 'SUBHARNESS_MODEL_FIXTURE_BUILDER', previous = process.env[key];
+  const key = 'WORKERDECK_MODEL_FIXTURE_BUILDER', previous = process.env[key];
   try {
     process.env[key] = 'provider/changed';
     const profile = { ...built.profile, image: { ...built.profile.image!, platform: process.platform, arch: process.arch } };

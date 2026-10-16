@@ -10,7 +10,7 @@ import { loadProfiles, forkProfile } from '../src/profiles.js';
 import type { Runner } from '../src/adapters.js';
 
 async function temp(work: (root: string) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'application-'));
   try { await work(root); } finally { await rm(root, { recursive: true, force: true }); }
@@ -72,9 +72,9 @@ test('session restores source configuration and rejects source/model changes', a
   assert.equal(engine.state.session.title, 'Hello');
   const reopened = await manager.open('latest');
   assert.equal(reopened.state.session.selection!.directProfileId, 'custom');
-  process.env.SUBHARNESS_MODEL_CUSTOM = 'different/model';
+  process.env.WORKERDECK_MODEL_CUSTOM = 'different/model';
   try { await assert.rejects(manager.open('latest'), /models or role assignments changed/); }
-  finally { delete process.env.SUBHARNESS_MODEL_CUSTOM; }
+  finally { delete process.env.WORKERDECK_MODEL_CUSTOM; }
   const file = path.join(source, 'profile.json');
   const manifest = JSON.parse(await readFile(file, 'utf8')); manifest.instructions += ' Changed.';
   await writeFile(file, JSON.stringify(manifest));
@@ -111,7 +111,7 @@ test('stdio accepts controls during execution, validates request IDs and redacts
     run.onEvent({ kind: 'session', text: '', sessionId: 'worker-native' });
     return await new Promise((_, reject) => run.signal.addEventListener('abort', () => reject(new Error('Stopped')), { once: true }));
   });
-  process.env.SUBHARNESS_TEST_SECRET = 'protocol-private-value';
+  process.env.WORKERDECK_TEST_SECRET = 'protocol-private-value';
   const running = serveStdio(manager, input, output);
   try {
     const created = await send('session.create', { direct: 'implement' });
@@ -147,5 +147,5 @@ test('stdio accepts controls during execution, validates request IDs and redacts
     assert.equal((await send('session.get', { sessionId })).result.session.title, 'ภาษาไทย');
     await until(() => messages.some(m => m.event === 'session.state'));
     assert(messages.some(m => m.error?.includes('64 KiB')));
-  } finally { input.end(); await running; output.destroy(); delete process.env.SUBHARNESS_TEST_SECRET; }
+  } finally { input.end(); await running; output.destroy(); delete process.env.WORKERDECK_TEST_SECRET; }
 }));

@@ -23,7 +23,7 @@ export class Bridge extends EventEmitter {
   constructor(cwd: string, stateDir: string, demo: boolean) {
     super();
     this.child = spawn(process.execPath, [
-      fileURLToPath(new URL('../bin/subharness.mjs', import.meta.url)),
+      fileURLToPath(new URL('../bin/workerdeck.mjs', import.meta.url)),
       'serve', '--stdio', '--cwd', cwd, '--state-dir', stateDir, ...(demo ? ['--demo'] : []),
     ], { cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: false, windowsHide: true, detached: process.platform !== 'win32' });
     let ready = false;

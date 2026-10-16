@@ -13,15 +13,15 @@ button{border:0;background:none}
 a{color:inherit;text-decoration:none}
 .icon{width:18px;height:18px;flex:none;vertical-align:middle}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
-.subharness-app{--surface:#222429;--panel:#1b1d22;--raised:#2c2f35;--ink:#e8e9ed;--muted:#a3a7b1;--line:#3b3e46;--accent:#ff7948;--input:#2c2f35;display:flex;background:var(--surface);color:var(--ink);height:100dvh;min-height:360px;isolation:isolate;overflow:hidden;font-size:14px;line-height:1.5}
-.subharness-app button:hover{color:var(--ink)}
+.workerdeck-app{--surface:#222429;--panel:#1b1d22;--raised:#2c2f35;--ink:#e8e9ed;--muted:#a3a7b1;--line:#3b3e46;--accent:#ff7948;--input:#2c2f35;display:flex;background:var(--surface);color:var(--ink);height:100dvh;min-height:360px;isolation:isolate;overflow:hidden;font-size:14px;line-height:1.5}
+.workerdeck-app button:hover{color:var(--ink)}
 .chat-main{min-width:0;flex:1;display:flex;flex-direction:column;position:relative}
 .chat-topbar{height:68px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:0 30px;color:var(--muted)}
 .header-left,.header-actions{display:flex;align-items:center;gap:13px;min-width:0}
 .header-actions{gap:7px;flex:none}
 .icon-btn{display:inline-grid;place-items:center;width:32px;height:32px;flex:none;border-radius:7px;color:var(--muted);padding:0}
 .icon-btn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
-.subharness-mark{width:29px;height:29px;display:inline-grid;place-items:center;flex:none;font-size:29px;color:var(--accent);line-height:1}
+.workerdeck-mark{width:29px;height:29px;display:inline-grid;place-items:center;flex:none;font-size:29px;color:var(--accent);line-height:1}
 .product-brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;letter-spacing:-.3px;color:var(--ink)}
 .brand-os{font-weight:400;color:var(--muted)}
 .project-label{display:inline-flex;gap:8px;align-items:center;white-space:nowrap;font-size:12px;font-weight:400;color:var(--muted)}
@@ -65,7 +65,7 @@ a{color:inherit;text-decoration:none}
 .message-actions{display:flex;gap:3px;margin-top:9px}
 .message-actions .icon-btn{width:28px;height:28px}
 .message-actions .icon{width:14px;height:14px}
-.assistant-message>.subharness-mark{width:29px;height:29px;font-size:28px;margin-top:-2px}
+.assistant-message>.workerdeck-mark{width:29px;height:29px;font-size:28px;margin-top:-2px}
 .attachment-list{display:flex;flex-wrap:wrap;gap:7px;padding:0 6px 13px}
 .attachment-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:6px 7px 6px 9px;max-width:100%;font-size:11px}
 .attachment-chip>.icon{width:14px;height:14px;color:var(--accent)}
@@ -78,7 +78,7 @@ a{color:inherit;text-decoration:none}
 .starter-links .icon{width:14px;height:14px}
 .app-dock{width:65px;flex:none;background:#14161a;padding:17px 9px;display:flex;flex-direction:column;align-items:center;gap:14px;border-right:1px solid #ffffff03}
 .dock-brand{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#ff79481a}
-.dock-brand .subharness-mark{font-size:31px}
+.dock-brand .workerdeck-mark{font-size:31px}
 .app-dock>i{width:25px;height:1px;background:#383b42}
 .dock-workspace,.dock-button{width:41px;height:41px;display:grid;place-items:center;border-radius:13px;background:#25282f;color:#9da3b1;position:relative}
 .dock-workspace.active{color:#ffad8e;background:#ff794824}
@@ -118,26 +118,26 @@ html,body,#root{height:100%;min-width:320px}
 body{overflow:hidden}
 button:disabled{opacity:.45}
 button:disabled:hover{cursor:not-allowed}
-.subharness-app{--surface:#202329;--panel:#191c21;--raised:#2b2f37;--ink:#e8e9ed;--muted:#a5acb8;--line:#373d47;--input:#292d34;position:relative}
-.subharness-app .chat-topbar{height:65px;border-bottom:1px solid #ffffff05;padding:0 27px}
-.subharness-app .chat-topbar .project-label{color:#b7becc}
-.subharness-app .center-start{padding:35px 40px 105px}
-.subharness-app .start-inner{max-width:690px}
-.subharness-app .welcome-block{margin-bottom:28px}
-.subharness-app .welcome-block h1{font-size:29px;font-weight:500;letter-spacing:-.7px;line-height:1.45}
-.subharness-app .welcome-block p{font-size:13px;line-height:1.9;margin-top:12px}
-.subharness-app .chat-composer{border-radius:16px}
-.subharness-app .quiet-hint{font-size:10px;max-width:680px}
-.subharness-app .starter-links{gap:18px;margin-top:17px}
-.subharness-app .starter-links>button{border:0;padding:5px 7px;font-size:11px;background:transparent}
-.subharness-app .starter-links>button:hover{color:#ffb08d}
-.subharness-app .app-dock{width:64px}
-.subharness-app .chat-sidebar{width:238px}
-.subharness-app .chat-sidebar>header{margin-bottom:24px}
-.subharness-app .chat-sidebar .history-group{overflow:auto;scrollbar-width:thin}
-.subharness-app .chat-sidebar .history-group>button.active{color:var(--ink);background:var(--raised)}
-.subharness-app .chat-sidebar .history-group>button small{display:block;font-size:9px;color:var(--muted);font-weight:400}
-.subharness-app .chat-sidebar footer{margin-top:auto}
+.workerdeck-app{--surface:#202329;--panel:#191c21;--raised:#2b2f37;--ink:#e8e9ed;--muted:#a5acb8;--line:#373d47;--input:#292d34;position:relative}
+.workerdeck-app .chat-topbar{height:65px;border-bottom:1px solid #ffffff05;padding:0 27px}
+.workerdeck-app .chat-topbar .project-label{color:#b7becc}
+.workerdeck-app .center-start{padding:35px 40px 105px}
+.workerdeck-app .start-inner{max-width:690px}
+.workerdeck-app .welcome-block{margin-bottom:28px}
+.workerdeck-app .welcome-block h1{font-size:29px;font-weight:500;letter-spacing:-.7px;line-height:1.45}
+.workerdeck-app .welcome-block p{font-size:13px;line-height:1.9;margin-top:12px}
+.workerdeck-app .chat-composer{border-radius:16px}
+.workerdeck-app .quiet-hint{font-size:10px;max-width:680px}
+.workerdeck-app .starter-links{gap:18px;margin-top:17px}
+.workerdeck-app .starter-links>button{border:0;padding:5px 7px;font-size:11px;background:transparent}
+.workerdeck-app .starter-links>button:hover{color:#ffb08d}
+.workerdeck-app .app-dock{width:64px}
+.workerdeck-app .chat-sidebar{width:238px}
+.workerdeck-app .chat-sidebar>header{margin-bottom:24px}
+.workerdeck-app .chat-sidebar .history-group{overflow:auto;scrollbar-width:thin}
+.workerdeck-app .chat-sidebar .history-group>button.active{color:var(--ink);background:var(--raised)}
+.workerdeck-app .chat-sidebar .history-group>button small{display:block;font-size:9px;color:var(--muted);font-weight:400}
+.workerdeck-app .chat-sidebar footer{margin-top:auto}
 .dock-bottom{margin-top:auto;display:flex;flex-direction:column;gap:13px;align-items:center}
 .dock-avatar{display:grid;place-items:center;border-radius:50%;background:#695147;color:#f8dfd0;width:29px;height:29px;font-size:11px}
 .sidebar-empty{font-size:11px;color:var(--muted);padding:4px 12px;line-height:1.8}
@@ -163,13 +163,13 @@ button:disabled:hover{cursor:not-allowed}
 .secondary-button,.primary-button,.danger-button{display:inline-flex;justify-content:center;align-items:center;gap:7px;border:1px solid var(--line);border-radius:7px;padding:9px 13px;font-size:12px;line-height:1.5;min-height:36px}
 .secondary-button{background:transparent;color:var(--ink)}
 .primary-button{background:var(--accent);border-color:var(--accent);color:#202126;font-weight:600}
-.subharness-app .primary-button:hover{background:#ff986f;color:#202126}
+.workerdeck-app .primary-button:hover{background:#ff986f;color:#202126}
 .danger-button{background:#df86601a;border-color:#ab71524d;color:#ffc09c}
 .secondary-button .icon,.primary-button .icon,.danger-button .icon{width:14px;height:14px}
 
 /* Live conversation, with the composer anchored beneath the transcript. */
-.subharness-app .message-list{max-width:820px;padding-top:37px}
-.subharness-app .composer-zone{max-width:820px;padding-top:12px}
+.workerdeck-app .message-list{max-width:820px;padding-top:37px}
+.workerdeck-app .composer-zone{max-width:820px;padding-top:12px}
 .message-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.9}
 .message-time{font-size:9px;color:var(--muted);font-weight:400}
 .message-profile{font-size:10px;color:#b8c0ce}
@@ -266,18 +266,18 @@ textarea.text-field{min-height:155px;resize:vertical;line-height:1.9}
 .diff-content{margin:0;padding:15px;background:#15191f;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px;line-height:1.8;white-space:pre;overflow:auto;max-height:400px;color:#c4cdd9;tab-size:2}
 .context-dialog .dialog-body>p{font-size:11px;color:var(--muted);line-height:1.9;margin:0 0 17px}
 
-@media(min-width:1600px){.subharness-app .center-start{padding-bottom:135px}}
-@media(max-width:1100px){.subharness-app .chat-sidebar{width:210px}.header-actions{gap:7px}.project-path{display:none}.session-title{max-width:170px}}
+@media(min-width:1600px){.workerdeck-app .center-start{padding-bottom:135px}}
+@media(max-width:1100px){.workerdeck-app .chat-sidebar{width:210px}.header-actions{gap:7px}.project-path{display:none}.session-title{max-width:170px}}
 @media(max-width:760px){
-  .subharness-app{font-size:13px}
-  .subharness-app .app-dock{width:49px;padding:13px 5px;gap:14px}
+  .workerdeck-app{font-size:13px}
+  .workerdeck-app .app-dock{width:49px;padding:13px 5px;gap:14px}
   .dock-brand{width:35px;height:36px;border-radius:11px}
-  .dock-brand .subharness-mark{font-size:28px}
+  .dock-brand .workerdeck-mark{font-size:28px}
   .dock-workspace,.dock-button{width:34px;height:34px;border-radius:11px}
   .dock-workspace.active::before{left:-8px;height:19px}
   .dock-button .icon{width:19px;height:19px}
   .user-avatar,.dock-avatar{width:27px;height:27px;font-size:10px}
-  .subharness-app .chat-topbar{height:58px;padding:0 14px;gap:8px}
+  .workerdeck-app .chat-topbar{height:58px;padding:0 14px;gap:8px}
   .header-left{gap:7px;min-width:0}
   .header-actions{gap:3px}
   .header-actions>.project-label,.header-description,.project-path,.session-title{display:none}
@@ -295,16 +295,16 @@ textarea.text-field{min-height:155px;resize:vertical;line-height:1.9}
   .project-breadcrumb>strong{font-size:10px;white-space:nowrap;max-width:85px;overflow:hidden;text-overflow:ellipsis}
   .project-breadcrumb>.project-label>span{max-width:110px}
   .mobile-only{display:inline-grid}
-  .subharness-app .chat-sidebar{position:absolute;inset:0 auto 0 49px;width:min(270px,calc(100% - 49px));z-index:31;padding-top:21px;box-shadow:15px 0 50px #0005}
+  .workerdeck-app .chat-sidebar{position:absolute;inset:0 auto 0 49px;width:min(270px,calc(100% - 49px));z-index:31;padding-top:21px;box-shadow:15px 0 50px #0005}
   .nav-backdrop{position:absolute;display:block;inset:0;background:#0007;z-index:30}
-  .subharness-app .center-start{padding:25px 20px 85px}
-  .subharness-app .welcome-block{margin-bottom:23px}
-  .subharness-app .welcome-block h1{font-size:25px;line-height:1.5;letter-spacing:-.5px}
-  .subharness-app .welcome-block p{font-size:12px;line-height:1.9;max-width:260px;margin:12px auto 0}
+  .workerdeck-app .center-start{padding:25px 20px 85px}
+  .workerdeck-app .welcome-block{margin-bottom:23px}
+  .workerdeck-app .welcome-block h1{font-size:25px;line-height:1.5;letter-spacing:-.5px}
+  .workerdeck-app .welcome-block p{font-size:12px;line-height:1.9;max-width:260px;margin:12px auto 0}
   .project-eyebrow{margin-bottom:22px;gap:9px}
   .project-eyebrow>.project-label{font-size:10px}
   .project-eyebrow>span:last-child{font-size:7px;letter-spacing:.7px}
-  .subharness-app .chat-composer{border-radius:14px;padding:14px 10px 10px}
+  .workerdeck-app .chat-composer{border-radius:14px;padding:14px 10px 10px}
   .chat-composer textarea{font-size:14px;min-height:65px;padding-inline:4px}
   .composer-tools{padding-top:5px;gap:8px}
   .composer-left{gap:5px}
@@ -315,18 +315,18 @@ textarea.text-field{min-height:155px;resize:vertical;line-height:1.9}
   .team-button .icon:last-child{width:9px;height:9px}
   .send-button{width:31px;height:31px}
   .send-button .icon{width:17px;height:17px}
-  .subharness-app .quiet-hint{font-size:9px;margin-top:12px;line-height:1.9}
-  .subharness-app .starter-links{gap:5px 9px;margin-top:16px}
-  .subharness-app .starter-links>button{font-size:9px;padding:5px 3px;gap:5px}
+  .workerdeck-app .quiet-hint{font-size:9px;margin-top:12px;line-height:1.9}
+  .workerdeck-app .starter-links{gap:5px 9px;margin-top:16px}
+  .workerdeck-app .starter-links>button{font-size:9px;padding:5px 3px;gap:5px}
   .starter-links>button .icon{width:12px;height:12px}
-  .subharness-app .composer-zone{padding:11px 15px 17px}
-  .subharness-app .message-list{padding:25px 17px 12px}
+  .workerdeck-app .composer-zone{padding:11px 15px 17px}
+  .workerdeck-app .message-list{padding:25px 17px 12px}
   .message-row{gap:10px;margin-bottom:25px}
   .message-author{font-size:11px;gap:7px}
   .message-author small{font-size:8px}
   .message-time{font-size:8px}
   .message-body p,.message-text,.streaming-output{font-size:13px;line-height:1.9}
-  .assistant-message>.subharness-mark{width:23px;height:23px;font-size:25px}
+  .assistant-message>.workerdeck-mark{width:23px;height:23px;font-size:25px}
   .user-message .message-body{max-width:94%;padding:11px 14px;border-radius:14px}
   .runtime-controls{font-size:9px;gap:5px;padding-inline:0}
   .runtime-controls button{font-size:9px;padding:5px 7px}
@@ -365,14 +365,14 @@ textarea.text-field{min-height:155px;resize:vertical;line-height:1.9}
   .profile-card dl{grid-template-columns:70px 1fr;font-size:9px}
   .diff-content{font-size:9px;padding:12px}
 }
-@media(max-height:560px){.subharness-app .center-start{padding-block:20px}.subharness-app .welcome-block{margin-bottom:15px}.subharness-app .welcome-block h1{font-size:24px}.chat-composer textarea{min-height:40px}.project-eyebrow{margin-bottom:14px}}
+@media(max-height:560px){.workerdeck-app .center-start{padding-block:20px}.workerdeck-app .welcome-block{margin-bottom:15px}.workerdeck-app .welcome-block h1{font-size:24px}.chat-composer textarea{min-height:40px}.project-eyebrow{margin-bottom:14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* Components shared by setup, requests and the inspector. */
 .send-button .icon{transform:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:35px;padding:8px 13px;font-size:12px;line-height:1.6;border:1px solid var(--line);border-radius:7px}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#202126;font-weight:600}
-.subharness-app .btn-primary:hover,.app-dialog .btn-primary:hover{background:#ff986f;color:#202126}
+.workerdeck-app .btn-primary:hover,.app-dialog .btn-primary:hover{background:#ff986f;color:#202126}
 .btn-secondary{color:var(--ink);background:transparent}
 .btn-secondary:hover{background:var(--raised)}
 .text-btn{font-size:11px;color:#ffb68e;padding:6px 0}
@@ -390,10 +390,10 @@ textarea.text-field{min-height:155px;resize:vertical;line-height:1.9}
 .sidebar-note,.sidebar-note+small{font-size:10px;line-height:1.9;color:var(--muted);padding:0 12px 12px;margin:0}
 .history-group>.empty-state{font-size:11px;padding:7px 12px}
 .message-author time{font-size:9px;color:var(--muted);font-weight:400}
-.subharness-app .streaming-output{display:flex;gap:15px;max-width:820px;margin:0 auto;padding:0 30px 25px}
-.streaming-output>.subharness-mark{margin-top:-2px}
+.workerdeck-app .streaming-output{display:flex;gap:15px;max-width:820px;margin:0 auto;padding:0 30px 25px}
+.streaming-output>.workerdeck-mark{margin-top:-2px}
 .streaming-output .message-text{font:inherit;white-space:pre-wrap;line-height:1.9;margin-top:9px}
-.subharness-app .chat-scroll>.request-card{max-width:760px;margin:20px auto 25px}
+.workerdeck-app .chat-scroll>.request-card{max-width:760px;margin:20px auto 25px}
 .runtime-controls>div{display:flex;gap:6px;flex-wrap:wrap}
 .session-live-status{font-size:10px;display:flex;align-items:center;gap:6px;flex:1}
 .session-live-status::before{content:'';width:5px;height:5px;flex:none;border-radius:50%;background:#a5acb8}
@@ -445,7 +445,7 @@ fieldset.mode-options legend,fieldset.worker-options legend{display:block;font-s
   .language-button{font-size:9px;padding:5px}
   .project-breadcrumb>.project-label>span{max-width:105px}
   .project-breadcrumb>strong,.project-breadcrumb>.project-label+span{display:none}
-  .subharness-app .chat-topbar{padding-inline:10px}
+  .workerdeck-app .chat-topbar{padding-inline:10px}
   .header-left{gap:4px}
   .header-actions{gap:1px}
   .header-actions>.icon-btn{width:25px}
@@ -454,8 +454,8 @@ fieldset.mode-options legend,fieldset.worker-options legend{display:block;font-s
   .demo-banner strong{font-size:8px}
   .connection-banner,.runtime-error{margin:10px 14px 0;font-size:10px;padding:10px 12px}
   .connection-banner{align-items:flex-start;flex-direction:column;gap:8px}
-  .subharness-app .streaming-output{padding:0 17px 20px;gap:10px;font-size:13px}
-  .subharness-app .chat-scroll>.request-card{margin:18px 17px 22px}
+  .workerdeck-app .streaming-output{padding:0 17px 20px;gap:10px;font-size:13px}
+  .workerdeck-app .chat-scroll>.request-card{margin:18px 17px 22px}
   .runtime-controls>div{gap:5px}
   .session-live-status{font-size:9px;min-width:100%}
   .session-live-status small{font-size:8px}

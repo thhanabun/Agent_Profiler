@@ -7,12 +7,12 @@ import { startHost } from '../server/host.js';
 
 type Host = Awaited<ReturnType<typeof startHost>>;
 async function fixture(work: (host: Host, root: string) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'http host project with spaces-'));
-  const previous = { SUBHARNESS_IMAGE_STORE: process.env.SUBHARNESS_IMAGE_STORE, SUBHARNESS_OPENCODE_BIN: process.env.SUBHARNESS_OPENCODE_BIN };
-  process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
-  process.env.SUBHARNESS_OPENCODE_BIN = path.join(root, 'native execution disabled.exe');
+  const previous = { WORKERDECK_IMAGE_STORE: process.env.WORKERDECK_IMAGE_STORE, WORKERDECK_OPENCODE_BIN: process.env.WORKERDECK_OPENCODE_BIN };
+  process.env.WORKERDECK_IMAGE_STORE = path.join(root, 'images');
+  process.env.WORKERDECK_OPENCODE_BIN = path.join(root, 'native execution disabled.exe');
   let host: Host | undefined;
   try { host = await startHost({ cwd: root, port: 0, demo: true }); await work(host, root); }
   finally {
@@ -57,7 +57,7 @@ test('readiness uses catalog references and preserves structured checks before s
   assert.equal(ready.result.reference, 'implement');
   assert.equal(ready.result.available, false);
   assert(ready.result.checks.some((check: { kind: string; status: string; action?: string }) =>
-    check.kind === 'native' && check.status === 'blocked' && check.action?.includes('SUBHARNESS_OPENCODE_BIN')));
+    check.kind === 'native' && check.status === 'blocked' && check.action?.includes('WORKERDECK_OPENCODE_BIN')));
   assert.deepEqual((await post(host, 'session.list')).result, []);
 }));
 
@@ -217,7 +217,7 @@ test('loopback guards reject browser bypasses and bound authenticated SSE client
 test('browser configuration stays fixed and all operations retain strict protocol validation', { timeout: 20000 }, () => fixture(async (host, root) => {
   const metadata = JSON.parse((await http(host, '/api/host')).body);
   assert.equal(metadata.cwd, host.cwd);
-  assert.equal(metadata.stateDir, path.join(host.cwd, '.subharness'));
+  assert.equal(metadata.stateDir, path.join(host.cwd, '.workerdeck'));
   const choices = await post(host, 'profiles.choices');
   assert(choices.result.some((choice: { reference: string }) => choice.reference === 'implement'));
   for (const params of [{ direct: root }, { orchestrator: root }, { workers: [root] }])
@@ -284,8 +284,8 @@ test('SSE relays demo state and errors, replays latest state, and retains local 
     await reconnected.close();
     await host.close();
     await host.closed;
-    const saved = JSON.parse(await readFile(path.join(root, '.subharness/sessions', `${sessionId}.json`), 'utf8'));
+    const saved = JSON.parse(await readFile(path.join(root, '.workerdeck/sessions', `${sessionId}.json`), 'utf8'));
     assert.equal(saved.tasks[0].status, 'completed');
-    await assert.rejects(readFile(path.join(root, '.subharness/runner.lock')), { code: 'ENOENT' });
+    await assert.rejects(readFile(path.join(root, '.workerdeck/runner.lock')), { code: 'ENOENT' });
   } finally { await stream.close(); await reconnected?.close(); }
 }));

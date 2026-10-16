@@ -1,6 +1,6 @@
-# Subharness
+# WorkerDeck
 
-Subharness is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. The Project First web UI is another client for the same runtime, with a small local Node.js host between the browser and native harnesses. See [system overview](docs/SYSTEM_OVERVIEW.md) for what exists and what remains.
+WorkerDeck is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. The Project First web UI is another client for the same runtime, with a small local Node.js host between the browser and native harnesses. See [runtime architecture](docs/ARCHITECTURE.md) for how the parts fit together.
 
 ## Project First web workspace
 
@@ -18,17 +18,17 @@ For an explicit offline simulation, add `--demo` to the host command. Simulation
 
 Context is pasted text included in the next message. The web UI does not implement general file upload or a file manager; its file diffs come from actual recorded task changes. Readiness checks do not prove provider access, and an accepted turn is not a completed turn.
 
-## Subharness CLI
+## WorkerDeck CLI
 
 A terminal workspace where an AI orchestrator breaks down a request, chooses specialist profiles, and runs their **native coding harnesses** in one shared project. Each profile belongs to one harness. Builder can hand work to Designer, then resume with the Designer's delivery in the same visible conversation.
 
-A personal, customizable assistant. Working name: **Subharness**. The focus is using it locally: conversation, saved preferences, specialist execution, and recoverable work.
+WorkerDeck is a personal, customizable assistant focused on local conversations, saved preferences, specialist execution, and recoverable work.
 
 You can now **build, inspect, derive, push/pull and run native harness images**, share a team locked to exact digests, and search shared metadata catalogs from the terminal. Start with [the image quickstart](docs/IMAGES.md). [Agent images and Hub](docs/AGENT_IMAGES.md) records the product direction and its remaining scope.
 
 ## Chats and team selection in the terminal
 
-Running `npm start -- run` opens a team picker when no profile selectors/resume/goal were provided. Pick an orchestrator with ↑↓ + Enter, toggle workers with Space, then Enter to create the session. Local profiles and installed images are available; the default new team is OpenCode orchestration with OpenCode/Codex workers. Explicit CLI selectors still open their selected session directly.
+Running `npm run workerdeck -- run` opens a team picker when no profile selectors/resume/goal were provided. Pick an orchestrator with ↑↓ + Enter, toggle workers with Space, then Enter to create the session. Local profiles and installed images are available; the default new team is OpenCode orchestration with OpenCode/Codex workers. Explicit CLI selectors still open their selected session directly.
 
 - `/new [title]` — choose a team and create a new chat.
 - `/team` — open the same picker to start another chat with a different team.
@@ -40,8 +40,8 @@ Opening a saved chat does not execute work automatically. Use `/resume` for pend
 ## OpenCode + Codex
 
 ```sh
-node bin/subharness.mjs doctor --harness codex
-node bin/subharness.mjs run --orchestrator orchestrator --worker implement --worker codex
+node bin/workerdeck.mjs doctor --harness codex
+node bin/workerdeck.mjs run --orchestrator orchestrator --worker implement --worker codex
 ```
 
 The `codex` profile uses its native login/model and loads the bundled handoff skill. [Setup, permissions and live checks](docs/CODEX.md). Bundled Codex plugins remain unsupported and are rejected explicitly.
@@ -52,11 +52,11 @@ An Agent Profile contains its harness, model, skills and plugins. The session as
 
 ```sh
 # Claude profile plans; OpenCode profiles execute.
-node bin/subharness.mjs run --orchestrator ui --worker implement --worker review --title "Feature work"
-node bin/subharness.mjs run --resume latest
+node bin/workerdeck.mjs run --orchestrator ui --worker implement --worker review --title "Feature work"
+node bin/workerdeck.mjs run --resume latest
 
 # Offline preview of the selected roles:
-node bin/subharness.mjs demo --orchestrator ui --worker implement
+node bin/workerdeck.mjs demo --orchestrator ui --worker implement
 ```
 
 Use `/profiles` for the selected roles, `/runs` for native invocation history and `/rename <title>` to name a session. Profiles/images/models are recorded with the session and restored automatically on resume. [Architecture and session commands](docs/ARCHITECTURE.md) · [UI integration contract](docs/UI_PROTOCOL.md).
@@ -64,14 +64,14 @@ Use `/profiles` for the selected roles, `/runs` for native invocation history an
 The existing Node bridge is available to a trusted local host:
 
 ```sh
-node bin/subharness.mjs serve --stdio --cwd /path/to/project
+node bin/workerdeck.mjs serve --stdio --cwd /path/to/project
 ```
 
 Browsers cannot launch or speak to a child process's stdio directly. The local Node host starts the existing CLI JSONL bridge as a child process and translates browser HTTP/SSE traffic. The CLI child owns `SessionManager` and `Engine`; the host preserves that boundary and binds to loopback.
 
 ## Web UI and local backend
 
-The implemented Project First client uses React + TypeScript + Vite + Tailwind, served by a Node.js 24+ TypeScript host. The host serves the built UI and translates browser requests/events; the CLI child owns `SessionManager`/`Engine`, native execution and the existing `.subharness` local state. No cloud login, remote database or hosted runner is required.
+The implemented Project First client uses React + TypeScript + Vite + Tailwind, served by a Node.js 24+ TypeScript host. The host serves the built UI and translates browser requests/events; the CLI child owns `SessionManager`/`Engine`, native execution and the existing `.workerdeck` local state. No cloud login, remote database or hosted runner is required.
 
 Current repository layout:
 
@@ -83,15 +83,12 @@ examples/            Team/profile examples
 fixtures/            Synthetic protocol and screen examples for backend/UI
 test/                Automated fixtures and opt-in live checks
 benchmarks/           Small coding-agent benchmark
-docs/                 Runtime architecture, UI protocol and handoffs
+docs/                 Runtime guides, image workflow and test evidence
 web/                 Project First React client, Vite config and client tests
 server/               Local Node HTTP/SSE host and fixed web/dist static server
 ```
 
-- [Web UI handoff](docs/HANDOFF_UX_UI.md)
-- [Local host/backend handoff](docs/HANDOFF_BACKEND.md)
-- [Current implementation gaps](docs/PROJECT_GAP_ANALYSIS.md)
-- [System overview](docs/SYSTEM_OVERVIEW.md)
+Contributor references: [runtime architecture](docs/ARCHITECTURE.md), [UI protocol](docs/UI_PROTOCOL.md), [image workflow](docs/IMAGES.md), [test results](docs/TESTING.md).
 
 The host validates requests with `src/contracts.ts`; the browser imports its shared types without importing the engine at runtime. [Protocol fixtures](fixtures/protocol/README.md) provide synthetic screens/events without model usage. `profiles.readiness` checks selected local setup before the first submitted turn; it does not verify provider access. See [the protocol contract](docs/UI_PROTOCOL.md), [web setup](web/README.md) and [host contract](server/README.md).
 
@@ -101,7 +98,7 @@ Requires Node.js 24+, npm, and Git. Live OpenCode profiles also require the nati
 
 ```sh
 npm ci
-npm start -- demo
+npm run workerdeck -- demo
 ```
 
 `demo` is an **offline simulation**: it previews routing and handoffs, makes no model requests, and changes no project files. It is visibly labelled throughout. It does save its local conversation state.
@@ -131,8 +128,8 @@ For the new image workflow, see [build → push → pull → run → derive](doc
 3. Run the setup check, then open your project:
 
 ```sh
-npm start -- doctor
-npm start -- run --cwd /path/to/project
+npm run workerdeck -- doctor
+npm run workerdeck -- run --cwd /path/to/project
 ```
 
 PowerShell:
@@ -141,16 +138,18 @@ PowerShell:
 # Only needed when using API-key billing instead of native Claude login:
 # $env:ANTHROPIC_API_KEY = 'your-key'
 # Optional: actual provider/model IDs available in your OpenCode account.
-$env:SUBHARNESS_MODEL_ORCHESTRATOR = 'provider/model-id'
-$env:SUBHARNESS_MODEL_IMPLEMENT = 'provider/model-id'
-$env:SUBHARNESS_MODEL_UI = 'sonnet'
-npm start -- run --cwd 'C:\path with spaces\project'
+$env:WORKERDECK_MODEL_ORCHESTRATOR = 'provider/model-id'
+$env:WORKERDECK_MODEL_IMPLEMENT = 'provider/model-id'
+$env:WORKERDECK_MODEL_UI = 'sonnet'
+npm run workerdeck -- run --cwd 'C:\path with spaces\project'
 ```
+
+Existing `.env` files using `SUBHARNESS_*` variable names remain supported; new configuration uses `WORKERDECK_*`.
 
 Alternatively copy `.env.example` to a local `.env` and load it explicitly:
 
 ```sh
-node --env-file=.env --import tsx src/cli.tsx run --cwd /path/to/project
+node --env-file=.env bin/workerdeck.mjs run --cwd /path/to/project
 ```
 
 SDKs do not automatically load this project's `.env` file. Live requests use the providers/accounts you configure and can incur charges or consume plan usage. The planner receives local readiness for each profile. `claude auth status` can still report a login whose OAuth token has expired; a failed live call asks you to run `claude auth login` and `/retry`. `doctor` checks local setup and makes no model requests.
@@ -162,7 +161,7 @@ SDKs do not automatically load this project's `.env` file. Live requests use the
 - **Builder** runs native OpenCode for implementation and integration.
 - **Designer** runs the official Claude Agent SDK (Claude Code's loop/tools) with a bundled `ui-craft` skill loaded as a local plugin.
 - **Inspector** is available for review when the user asks for it.
-- Tasks run sequentially in the selected project. A filesystem lock prevents two Subharness processes using the same state directory concurrently.
+- Tasks run sequentially in the selected project. A filesystem lock prevents two WorkerDeck processes using the same state directory concurrently.
 - Each profile/checksum/model combination keeps its native session ID. On returning to a profile, the runner resumes it and supplies shared conversation updates, previous deliveries and current direction. Workers are told to re-read files that another harness may have changed.
 - Each handoff includes the goal, acceptance conditions and previous deliveries. Native tool activity is streamed into the central pane. Hidden model reasoning is not copied.
 - A worker's successful final response marks its task completed. This means **execution returned a report**, not that an independent evaluator proved correctness. `BLOCKED:` reports and native errors stop dependent work.
@@ -201,12 +200,12 @@ Trust and permission cards use `yes` / `no`; questions accept a text answer. Too
 ## Resume
 
 ```sh
-npm start -- sessions --cwd /path/to/project
-npm start -- run --cwd /path/to/project --resume <session-id>
-npm start -- run --cwd /path/to/project --resume latest
+npm run workerdeck -- sessions --cwd /path/to/project
+npm run workerdeck -- run --cwd /path/to/project --resume <session-id>
+npm run workerdeck -- run --cwd /path/to/project --resume latest
 ```
 
-Local state defaults to `<project>/.subharness` and can be moved with `--state-dir`. Add the state directory to the target project's `.gitignore`. State contains conversation text, native session references, trust checksums, preferences and staged profile resources. Demo and live sessions cannot be mixed. `latest` selects the most recently saved session for the same project and mode. Native session IDs are checkpointed immediately and streamed output periodically using atomic file replacement. Interrupted tasks restore as stopped with their saved partial output; use `/retry` after inspecting existing edits. Failed planning can also be retried. Direction queued while busy is saved and processed at the next boundary.
+Local state defaults to `<project>/.workerdeck` and can be moved with `--state-dir`. If an older `<project>/.subharness` directory exists and `.workerdeck` does not, WorkerDeck keeps using the existing directory so saved sessions remain available. Add the state directory to the target project's `.gitignore`. State contains conversation text, native session references, trust checksums, preferences and staged profile resources. Demo and live sessions cannot be mixed. `latest` selects the most recently saved session for the same project and mode. Native session IDs are checkpointed immediately and streamed output periodically using atomic file replacement. Interrupted tasks restore as stopped with their saved partial output; use `/retry` after inspecting existing edits. Failed planning can also be retried. Direction queued while busy is saved and processed at the next boundary.
 
 The inspector compares files before and after each task, including new/untracked files and deletions. Earlier changes to the same file do not reappear as new changes. Concurrent manual edits are included too; this is not automatic rollback or isolated worktrees. Inspection is capped at 2,000 files; previews retain text files up to 64 KB within a 4 MiB checkpoint budget and display at most 20,000 characters. Larger/binary files are listed without content previews. The state directory and known sensitive paths are excluded.
 
@@ -227,15 +226,15 @@ Preferences do not grant tool permissions. Removing memory stops adding it to fu
 ## Profiles and sharing
 
 ```sh
-npm start -- profiles
-npm start -- profiles "responsive"
-npm start -- show ui
-npm start -- init ./my-builder --harness opencode
-npm start -- check ./my-builder
-npm start -- check codex --json
-npm start -- fork ui --to ./.subharness/profiles/my-designer
-npm start -- export ui --out ./designer.agentpack
-npm start -- import ./designer.agentpack --to ./.subharness/profiles/shared-designer
+npm run workerdeck -- profiles
+npm run workerdeck -- profiles "responsive"
+npm run workerdeck -- show ui
+npm run workerdeck -- init ./my-builder --harness opencode
+npm run workerdeck -- check ./my-builder
+npm run workerdeck -- check codex --json
+npm run workerdeck -- fork ui --to ./.workerdeck/profiles/my-designer
+npm run workerdeck -- export ui --out ./designer.agentpack
+npm run workerdeck -- import ./designer.agentpack --to ./.workerdeck/profiles/shared-designer
 ```
 
 Forking assigns a new ID and records the source ID/version/checksum. An unmodified import preserves its ID; identical copies are deduplicated. Fork to a new ID before customizing a copy alongside its source. Extra profiles are loaded from `<state-dir>/profiles` or `--profiles <parent-directory>`. Use `--orchestrator <ref>` and repeatable `--worker <ref>` to assign session roles explicitly; references can be local IDs, source directories or installed images.
@@ -251,7 +250,7 @@ Edit `profile.json` and its skill/plugin sources with your editor. Supported fie
 - `requiredEnv`: variable **names**, never values;
 - optional `readme` and `forkedFrom`.
 
-`SUBHARNESS_MODEL_<PROFILE_ID>` overrides the model for a run (uppercase, hyphens become underscores). Restart after changing profile source: its checksum and native session identity change, and the new source must be trusted.
+`WORKERDECK_MODEL_<PROFILE_ID>` overrides the model for a run (uppercase, hyphens become underscores). Restart after changing profile source: its checksum and native session identity change, and the new source must be trusted.
 
 Exports are ZIP `.agentpack` files containing **only declared source**, `profile.json` and a generated `profile.lock.json` with file hashes. Imports verify integrity before installation and do not run the profile. Limits: 10 MiB compressed, 50 MiB expanded, 1,000 archive entries. Traversal, symlinks, sensitive paths, duplicate/case-colliding names and bad checksums are rejected. Existing destinations are not intentionally overwritten.
 
@@ -268,17 +267,17 @@ This slice implements three harness adapters (OpenCode, Codex and Claude), local
 ```sh
 npm run typecheck
 npm test
-npm start -- demo --headless --goal "Build a booking app with a mobile interface"
+npm run workerdeck -- demo --headless --goal "Build a booking app with a mobile interface"
 ```
 
 Automated fixtures cover routing/dependencies, handoff/resume, chat without tasks, saved preferences, crash checkpoints, failures/cancellation, package integrity/path attacks, precise task diffs and terminal keyboard/layout behavior. They do not call providers. The headless mode prints JSON conversation events and denies interactive trust/tool requests; use the TUI for approvals. There is no automatic live fallback to simulation.
 
 ## Quickstart ภาษาไทย
 
-1. `npm ci` แล้ว `npm start -- demo` เพื่อดู flow จำลอง ไม่มีการเรียก model หรือแก้โปรเจกต์
+1. `npm ci` แล้ว `npm run workerdeck -- demo` เพื่อดู flow จำลอง ไม่มีการเรียก model หรือแก้โปรเจกต์
 2. ขยาย terminal ให้กว้างอย่างน้อย 105 ตัวอักษร เพื่อเห็นซ้าย–กลาง–ขวา
 3. โหมดจริงให้ติดตั้งและ login OpenCode; ฝั่ง Designer ใช้ `claude auth login` หรือ API key/cloud provider ที่ตั้งไว้
-4. `npm start -- run --cwd 'พาธโปรเจกต์'` แล้วพิมพ์เป้าหมาย ตัว orchestrator จะเลือก profiles เอง
+4. `npm run workerdeck -- run --cwd 'พาธโปรเจกต์'` แล้วพิมพ์เป้าหมาย ตัว orchestrator จะเลือก profiles เอง
 5. พิมพ์แทรกเพื่อเปลี่ยนทิศทางหลังงานปัจจุบันจบ หรือ `/stop` เพื่อหยุดทันที
 6. `/remember ตอบภาษาไทย` บันทึกความชอบ, `/memory` ดูความจำ, `/persona` ดูไฟล์ปรับบุคลิก
 7. `/profiles` ดูทีม, `/diff` ดูการเปลี่ยนแปลง, `/quit` บันทึกและออก; กลับมาใช้ `--resume latest`

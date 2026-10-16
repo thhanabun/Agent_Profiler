@@ -19,7 +19,7 @@ const files: Record<string, [string, string]> = {
 };
 
 async function fixture(work: (port: number, build: string, root: string) => Promise<void>, built = true) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'static build with spaces-'));
   const build = path.join(root, 'dist');

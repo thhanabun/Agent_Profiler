@@ -21,7 +21,7 @@ CLI/TUI เป็นหน้าจอหลักทั้งหมด: ซ้�
 
 ## นำแนวคิด Docker มาใช้ตรงไหน
 
-| แนวคิด | Agentpack/Subharness ที่เสนอ |
+| แนวคิด | Agentpack/WorkerDeck ที่เสนอ |
 | --- | --- |
 | Build recipe | `profile.json` และ source ที่แก้ด้วย editor ได้ ไม่เพิ่มภาษา Agentfile ใน MVP |
 | Image | artifact ที่แก้ไม่ได้หลัง build พร้อม resolved manifest และ lockfile |
@@ -60,20 +60,20 @@ Image identity กับ instance state ต้องแยกกัน: คน�
 คำสั่งด้านล่างมีใน CLI แล้ว การ push/pull ต้องติดตั้ง ORAS และมีสิทธิ์ของ registry ที่เลือก:
 
 ```sh
-subharness search "frontend"
-subharness inspect community/ui:1.0.0
-subharness pull community/ui:1.0.0
-subharness run community/ui:1.0.0 --cwd ./project
+workerdeck search "frontend"
+workerdeck inspect community/ui:1.0.0
+workerdeck pull community/ui:1.0.0
+workerdeck run community/ui:1.0.0 --cwd ./project
 
-subharness fork community/ui:1.0.0 --to ./my-ui
+workerdeck fork community/ui:1.0.0 --to ./my-ui
 # Edit profile.json and add a local brand skill.
-subharness build ./my-ui --tag thana/ui:1.0.0
-subharness push thana/ui:1.0.0
+workerdeck build ./my-ui --tag thana/ui:1.0.0
+workerdeck push thana/ui:1.0.0
 
-subharness team run ./team.json --cwd ./project
+workerdeck team run ./team.json --cwd ./project
 ```
 
-ชื่อ CLI ปัจจุบันคือ `subharness`; Agentpack เป็นชื่อทำงานเดิมของสินค้า ยังไม่ต้องเพิ่ม CLI อีกตัว
+ชื่อคำสั่ง CLI คือ `workerdeck`; ไฟล์ profile bundle ยังคงใช้นามสกุล `.agentpack`
 
 ## Registry ที่ทำได้โดยไม่สร้าง blob storage ใหม่
 

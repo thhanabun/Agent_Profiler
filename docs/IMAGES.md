@@ -9,25 +9,25 @@ Install/authenticate the native harness first. Images currently require the exac
 Run `opencode models` to find an actual provider/model ID. Replace `provider/model` below; image builds require an explicit model reference. Claude profiles can use a native alias such as `sonnet`. Remote aliases may change behind the same reference.
 
 ```sh
-node bin/subharness.mjs build implement --tag myname/builder:1.0.0 --model provider/model
-node bin/subharness.mjs images
-node bin/subharness.mjs inspect myname/builder:1.0.0
-node bin/subharness.mjs run myname/builder:1.0.0 --cwd /path/to/project
+node bin/workerdeck.mjs build implement --tag myname/builder:1.0.0 --model provider/model
+node bin/workerdeck.mjs images
+node bin/workerdeck.mjs inspect myname/builder:1.0.0
+node bin/workerdeck.mjs run myname/builder:1.0.0 --cwd /path/to/project
 ```
 
 `run <image>` opens a direct chat with that image, without an extra planner. Follow-ups reuse its native session. `run` without an image retains the original orchestrated local profile workflow. Use `team run` for an orchestrated image team.
 
-The store defaults to `~/.subharness/images`; set `SUBHARNESS_IMAGE_STORE` or `--store <directory>` to relocate it. Mutable conversation state remains under the project's `.subharness` or `--state-dir`.
+The store defaults to `~/.workerdeck/images`; set `WORKERDECK_IMAGE_STORE` or `--store <directory>` to relocate it. If the old `~/.subharness/images` exists and the new store does not, WorkerDeck keeps using the old store. Mutable conversation state remains under the project's `.workerdeck` or `--state-dir`.
 
 Builds are deterministic for the same source and recorded runtime/model references. Local tags cannot be overwritten with different content. Digests address exact manifests, and all metadata/source blobs are checked before use. Runtime or model environment overrides that conflict with a locked image are rejected; use an editable fork and rebuild instead.
 
 ## Derive a new image
 
 ```sh
-node bin/subharness.mjs fork myname/builder:1.0.0 --to ./brand-builder --id brand-builder
+node bin/workerdeck.mjs fork myname/builder:1.0.0 --to ./brand-builder --id brand-builder
 # Edit profile.json, instructions and skill/plugin sources with your editor.
-node bin/subharness.mjs build ./brand-builder --tag myname/brand-builder:1.0.0
-node bin/subharness.mjs diff myname/builder:1.0.0 myname/brand-builder:1.0.0
+node bin/workerdeck.mjs build ./brand-builder --tag myname/brand-builder:1.0.0
+node bin/workerdeck.mjs diff myname/builder:1.0.0 myname/brand-builder:1.0.0
 ```
 
 The fork is a full editable copy. `image.parent.json` records the base digest, which is carried into the derived OCI metadata. Keep this sidecar and the base image in the store when rebuilding. A child must keep the parent's harness; model/instructions/skills/plugins can be changed. This first implementation flattens the resulting source into one layer, rather than merging filesystem layers at runtime.
@@ -36,18 +36,18 @@ The lock covers embedded source bytes. External package resolution is not implem
 
 ## Push and pull through a registry
 
-Install [ORAS CLI 1.3+](https://oras.land/docs/installation/) on PATH, or set `SUBHARNESS_ORAS_BIN` to its native executable. The app uses [ORAS copy](https://oras.land/docs/commands/oras_cp/) for OCI transport and its native registry credentials; it does not collect model/provider credentials.
+Install [ORAS CLI 1.3+](https://oras.land/docs/installation/) on PATH, or set `WORKERDECK_ORAS_BIN` to its native executable. The app uses [ORAS copy](https://oras.land/docs/commands/oras_cp/) for OCI transport and its native registry credentials; it does not collect model/provider credentials.
 
 Authenticate with the destination using ORAS's native prompt:
 
 ```sh
 oras login ghcr.io
-node bin/subharness.mjs push myname/brand-builder:1.0.0 --to ghcr.io/myname/brand-builder:1.0.0
+node bin/workerdeck.mjs push myname/brand-builder:1.0.0 --to ghcr.io/myname/brand-builder:1.0.0
 
 # On the receiving machine, after installing this CLI and native prerequisites:
-node bin/subharness.mjs pull ghcr.io/myname/brand-builder:1.0.0
-node bin/subharness.mjs inspect ghcr.io/myname/brand-builder:1.0.0
-node bin/subharness.mjs run ghcr.io/myname/brand-builder:1.0.0 --cwd /path/to/project
+node bin/workerdeck.mjs pull ghcr.io/myname/brand-builder:1.0.0
+node bin/workerdeck.mjs inspect ghcr.io/myname/brand-builder:1.0.0
+node bin/workerdeck.mjs run ghcr.io/myname/brand-builder:1.0.0 --cwd /path/to/project
 ```
 
 Names without a registry host default to `registry-1.docker.io`. For an existing custom credential config, pass `--registry-config <file>`. This revision was tested against an official local Distribution registry, not a hosted GHCR/Docker Hub account.
@@ -72,14 +72,14 @@ Build and push one orchestrator and one or more worker images. Give each profile
 ```
 
 ```sh
-node bin/subharness.mjs build orchestrator --tag ghcr.io/myname/conductor:1.0.0 --model provider/model
-node bin/subharness.mjs push ghcr.io/myname/conductor:1.0.0
-node bin/subharness.mjs team lock ./team.json
+node bin/workerdeck.mjs build orchestrator --tag ghcr.io/myname/conductor:1.0.0 --model provider/model
+node bin/workerdeck.mjs push ghcr.io/myname/conductor:1.0.0
+node bin/workerdeck.mjs team lock ./team.json
 
 # Share team.json AND the generated team.lock.json.
 # Recipient downloads the exact locked digests, then opens the same team:
-node bin/subharness.mjs team pull ./team.json
-node bin/subharness.mjs team run ./team.json --cwd /path/to/project
+node bin/workerdeck.mjs team pull ./team.json
+node bin/workerdeck.mjs team run ./team.json --cwd /path/to/project
 ```
 
 The orchestrator chooses among the locked workers itself and hands work back through the shared conversation. The receiver uses their own native account logins. Changing the team manifest requires an explicit `team lock` after reviewing the new images. `team pull` never replans or silently advances versions. Bare digests without repository names work locally but cannot tell another machine where to download the image.
@@ -87,7 +87,7 @@ The orchestrator chooses among the locked workers itself and hands work back thr
 Resume restores the saved selection and exact digests from the local store:
 
 ```sh
-node bin/subharness.mjs run --cwd /path/to/project --resume latest
+node bin/workerdeck.mjs run --cwd /path/to/project --resume latest
 ```
 
 A resumed conversation must use the same image digests/direct profile ID. Start a new conversation after changing the team/image. The offline `demo` command simulates selected local profiles; `team run` uses actual locked images. Session roles override the old profile role hint. See [architecture](ARCHITECTURE.md) for selecting both roles directly with CLI flags.
@@ -95,12 +95,12 @@ A resumed conversation must use the same image digests/direct profile ID. Start 
 ## Hub discovery from the terminal
 
 ```sh
-node bin/subharness.mjs catalog --out ./catalog.json
-node bin/subharness.mjs search "frontend" --catalog ./catalog.json
-node bin/subharness.mjs search "frontend" --catalog https://example.org/catalog.json
+node bin/workerdeck.mjs catalog --out ./catalog.json
+node bin/workerdeck.mjs search "frontend" --catalog ./catalog.json
+node bin/workerdeck.mjs search "frontend" --catalog https://example.org/catalog.json
 ```
 
-Without `--catalog` (or `SUBHARNESS_CATALOG`), search includes installed images and local profiles. Catalogs are bounded, validated metadata files. You can share a file or host it over HTTPS; no web frontend is needed. Catalog descriptions are author claims, not verified runtime results. Pull and inspect the referenced artifact before use. The app does not automatically publish a catalog or create a hosted public directory.
+Without `--catalog` (or `WORKERDECK_CATALOG`), search includes installed images and local profiles. Catalogs are bounded, validated metadata files. You can share a file or host it over HTTPS; no web frontend is needed. Catalog descriptions are author claims, not verified runtime results. Pull and inspect the referenced artifact before use. The app does not automatically publish a catalog or create a hosted public directory.
 
 Legacy `export`/`import` still move editable source profile `.agentpack` files. Those are not locked OCI images; use image push/pull for the full image identity/runtime definition.
 

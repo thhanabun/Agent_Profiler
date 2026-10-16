@@ -43,10 +43,10 @@ Environment: Node.js `26.4.0`; OpenCode `1.19.0` / SDK `1.19.0`; Codex `0.162.0-
 Runner/spec/evaluator: [benchmarks/wordstats.ts](../../benchmarks/wordstats.ts).
 
 ```powershell
-$env:SUBHARNESS_BENCHMARK_LIVE = '1'
+$env:WORKERDECK_BENCHMARK_LIVE = '1'
 # Optional models available in your accounts:
-# $env:SUBHARNESS_TEST_OPENCODE_MODEL = 'provider/model'
-# $env:SUBHARNESS_TEST_CODEX_MODEL = 'native-model-id'
+# $env:WORKERDECK_TEST_OPENCODE_MODEL = 'provider/model'
+# $env:WORKERDECK_TEST_CODEX_MODEL = 'native-model-id'
 node --import tsx benchmarks/wordstats.ts
 ```
 
@@ -59,4 +59,4 @@ Local evidence for this measured run:
 - [Codex implementation](../../.subharness/benchmarks/wordstats-hiIqmh/codex-direct/project/stats.mjs) and [CLI](../../.subharness/benchmarks/wordstats-hiIqmh/codex-direct/project/cli.mjs).
 - [Team implementation](../../.subharness/benchmarks/wordstats-hiIqmh/team/project/stats.mjs) and [CLI](../../.subharness/benchmarks/wordstats-hiIqmh/team/project/cli.mjs).
 
-`.subharness` artifacts remain local and may not be included in a shared checkout. The measured summary above and repeatable runner remain in the source tree.
+`.subharness` artifacts from the recorded pre-rename run remain local and may not be included in a shared checkout. The measured summary above and repeatable runner remain in the source tree.

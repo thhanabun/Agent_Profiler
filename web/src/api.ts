@@ -122,7 +122,7 @@ export class HostApi {
       return await this.fetcher(`${this.base}${path}`, { cache: 'no-store', credentials: 'same-origin', redirect: 'error', ...options });
     } catch (error) {
       if (options.signal?.aborted) throw error;
-      throw new HostApiError('Cannot reach the local Subharness host. Check that it is running, then reconnect.', undefined, 'network');
+      throw new HostApiError('Cannot reach the local WorkerDeck host. Check that it is running, then reconnect.', undefined, 'network');
     }
   }
   private async json(response: Response): Promise<unknown> {
@@ -212,7 +212,7 @@ export class HostApi {
     }
     options.onOpen?.();
     await readEventStream(response.body, options.onEvent, options.signal);
-    if (!options.signal.aborted) throw new HostApiError('The connection to the local Subharness host closed. Reconnecting…', undefined, 'network');
+    if (!options.signal.aborted) throw new HostApiError('The connection to the local WorkerDeck host closed. Reconnecting…', undefined, 'network');
   }
 }
 

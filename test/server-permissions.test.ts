@@ -16,14 +16,14 @@ async function post(host: Host, method: string, params: unknown) {
 }
 
 test('HTTP forwards live-mode trust with exact IDs and denying it starts no native session', { timeout: 30000 }, async () => {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'host trust denial with spaces-'));
   const stateDir = path.join(root, 'isolated state');
-  const previous = { SUBHARNESS_IMAGE_STORE: process.env.SUBHARNESS_IMAGE_STORE, SUBHARNESS_OPENCODE_BIN: process.env.SUBHARNESS_OPENCODE_BIN };
-  process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
+  const previous = { WORKERDECK_IMAGE_STORE: process.env.WORKERDECK_IMAGE_STORE, WORKERDECK_OPENCODE_BIN: process.env.WORKERDECK_OPENCODE_BIN };
+  process.env.WORKERDECK_IMAGE_STORE = path.join(root, 'images');
   // Keep a trust regression from reaching the user's native runtime or provider account.
-  process.env.SUBHARNESS_OPENCODE_BIN = path.join(root, 'native runtime disabled.exe');
+  process.env.WORKERDECK_OPENCODE_BIN = path.join(root, 'native runtime disabled.exe');
   let host: Host | undefined;
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {

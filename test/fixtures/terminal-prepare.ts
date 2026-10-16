@@ -7,11 +7,11 @@ import { createProfile, loadProfile } from '../../src/profiles.js';
 
 const harness = process.argv[2];
 if (harness !== 'opencode' && harness !== 'codex') throw new Error('Specify opencode or codex.');
-const parent = path.resolve('.subharness/terminal'); await mkdir(parent, { recursive: true });
+const parent = path.resolve('.workerdeck/terminal'); await mkdir(parent, { recursive: true });
 const root = await mkdtemp(path.join(parent, `${harness}-`)), cwd = path.join(root, 'project with spaces'), stateRoot = path.join(root, 'state');
 await mkdir(cwd); const source = path.join(root, 'profiles/worker'); await createProfile(source, 'terminal-worker', harness);
 const manifest = JSON.parse(await readFile(path.join(source, 'profile.json'), 'utf8'));
-manifest.model = harness === 'opencode' ? process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' : process.env.SUBHARNESS_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
+manifest.model = harness === 'opencode' ? process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' : process.env.WORKERDECK_TEST_CODEX_MODEL ?? 'gpt-6.1-sol';
 manifest.skills = []; manifest.instructions = 'Authorized terminal cancellation fixture. Follow YOUR TASK exactly. No tools, file changes, integrations or subagents.';
 await writeFile(path.join(source, 'profile.json'), JSON.stringify(manifest));
 const profile = await loadProfile(source), sessionId = randomUUID();

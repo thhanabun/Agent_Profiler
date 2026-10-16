@@ -11,8 +11,8 @@ export function claudeCloudConfigured(): boolean {
 }
 
 export async function findClaude(): Promise<string | undefined> {
-  const explicit = process.env.SUBHARNESS_CLAUDE_BIN;
-  if (explicit && /\.(?:cmd|bat|ps1)$/i.test(explicit)) throw new Error('SUBHARNESS_CLAUDE_BIN must point to a native executable, not a shell shim.');
+  const explicit = process.env.WORKERDECK_CLAUDE_BIN;
+  if (explicit && /\.(?:cmd|bat|ps1)$/i.test(explicit)) throw new Error('WORKERDECK_CLAUDE_BIN must point to a native executable, not a shell shim.');
   const candidates = explicit ? [path.resolve(explicit)] : [
     ...(process.env.PATH ?? '').split(path.delimiter).filter(Boolean).map(directory => path.join(directory, process.platform === 'win32' ? 'claude.exe' : 'claude')),
     path.join(homedir(), '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude'),

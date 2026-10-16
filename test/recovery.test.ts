@@ -10,7 +10,7 @@ import { createProfile, loadProfile } from '../src/profiles.js';
 import { acquireLock } from '../src/storage.js';
 
 test('hard process crash recovers its stale lock, checkpoint and native reference; explicit retry preserves completed work', { timeout: 20000 }, async () => {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'hard-recovery-'));
   const cwd = path.join(root, 'project with spaces'), stateRoot = path.join(root, 'state');
   await mkdir(cwd); await writeFile(path.join(cwd, 'completed.txt'), 'COMPLETED_ONCE\n');
@@ -34,7 +34,7 @@ test('hard process crash recovers its stale lock, checkpoint and native referenc
   });
   try {
     await ready;
-    await assert.rejects(acquireLock(stateRoot), /Another Subharness process/);
+    await assert.rejects(acquireLock(stateRoot), /Another WorkerDeck process/);
     child.kill('SIGKILL'); await exited;
     const checkpoint = await readSession(stateRoot, session.id, cwd, true);
     assert.equal(checkpoint.tasks[1]!.status, 'running'); assert.equal(checkpoint.inFlight!.text, 'CHECKPOINTED_PARTIAL_OUTPUT');
@@ -68,7 +68,7 @@ test('hard process crash recovers its stale lock, checkpoint and native referenc
 });
 
 test('new user direction supersedes interrupted work so historical failures do not block future resume', async () => {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'recovery-direction-'));
   try {
     const source = path.join(root, 'source'); await createProfile(source, 'planner', 'opencode');

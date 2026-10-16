@@ -15,7 +15,7 @@ import { WorkspaceApp } from '../src/workspace-ui.js';
 import { SessionManager } from '../src/application.js';
 
 test('terminal renders three panes at wide widths and a usable compact layout', async () => {
-  const engine = new Engine({ cwd: process.cwd(), stateRoot: '.subharness/ui-fixture', profiles: await loadProfiles(), demo: true });
+  const engine = new Engine({ cwd: process.cwd(), stateRoot: '.workerdeck/ui-fixture', profiles: await loadProfiles(), demo: true });
   const original = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
   try {
     Object.defineProperty(process.stdout, 'columns', { value: 140, configurable: true });
@@ -48,7 +48,7 @@ test('Windows terminal cleanup retries only a transient raw-mode restore failure
 });
 
 test('terminal keyboard edits at the cursor, accepts Thai memory commands and forwards approvals', async () => {
-  const parent = path.join(process.cwd(), '.subharness', 'tests');
+  const parent = path.join(process.cwd(), '.workerdeck', 'tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'terminal-'));
   const stdin = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => {}, ref: () => {}, unref: () => {} });
@@ -88,7 +88,7 @@ test('terminal keyboard edits at the cursor, accepts Thai memory commands and fo
 });
 
 test('workspace team picker creates chats, restores saved sessions and refuses navigation during work', async () => {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'workspace-ui-'));
   const manager = new SessionManager({ cwd: root, stateRoot: path.join(root, 'state'), store: path.join(root, 'images'), extraRoot: path.join(root, 'profiles'), demo: true,
     runner: async input => {
@@ -141,7 +141,7 @@ test('workspace team picker creates chats, restores saved sessions and refuses n
 });
 
 test('workspace session picker filters live history out of simulation mode', async () => {
-  const parent = path.resolve('.subharness/tests'); await mkdir(parent, { recursive: true });
+  const parent = path.resolve('.workerdeck/tests'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'workspace-mode-'));
   const options = { cwd: root, stateRoot: path.join(root, 'state'), store: path.join(root, 'images'), extraRoot: path.join(root, 'profiles') };
   const live = new SessionManager(options); await live.create({ direct: 'codex', title: 'HIDDEN_LIVE_SESSION' }); await live.shutdown();

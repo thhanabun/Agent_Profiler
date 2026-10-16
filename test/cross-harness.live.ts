@@ -7,15 +7,15 @@ import { runNative } from '../src/adapters.js';
 import { builtinRoot, forkProfile, loadProfile } from '../src/profiles.js';
 import { Engine } from '../src/engine.js';
 
-test('real OpenCode → Codex → OpenCode handoff, saved resume and Codex planning', { skip: process.env.SUBHARNESS_TEST_LIVE !== '1', timeout: 360000 }, async context => {
-  const parent = path.resolve('.subharness/cross-harness'); await mkdir(parent, { recursive: true });
+test('real OpenCode → Codex → OpenCode handoff, saved resume and Codex planning', { skip: process.env.WORKERDECK_TEST_LIVE !== '1', timeout: 360000 }, async context => {
+  const parent = path.resolve('.workerdeck/cross-harness'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'live-'));
   const cwd = path.join(root, 'project with spaces'), stateRoot = path.join(root, 'state');
   await mkdir(cwd);
   const sources = [
-    { source: 'orchestrator', id: 'live-planner', model: process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' },
-    { source: 'implement', id: 'live-opencode', model: process.env.SUBHARNESS_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' },
-    { source: 'codex', id: 'live-codex', model: process.env.SUBHARNESS_TEST_CODEX_MODEL ?? 'gpt-6.1-sol' },
+    { source: 'orchestrator', id: 'live-planner', model: process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' },
+    { source: 'implement', id: 'live-opencode', model: process.env.WORKERDECK_TEST_OPENCODE_MODEL ?? 'opencode/muse-spark-1.3-contributor-free' },
+    { source: 'codex', id: 'live-codex', model: process.env.WORKERDECK_TEST_CODEX_MODEL ?? 'gpt-6.1-sol' },
   ];
   for (const source of sources) {
     const destination = path.join(root, 'profiles', source.id);

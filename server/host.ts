@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { parseRequest, requestSchema, type ProtocolEvent, type ProtocolRequest } from '../src/contracts.js';
 import { Bridge } from './bridge.js';
 import { serveStatic } from './static.js';
+import { preferredDirectory } from '../src/storage.js';
 
 const webRoot = fileURLToPath(new URL('../web/dist/', import.meta.url));
 
@@ -17,7 +18,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
   signal?.throwIfAborted();
   const cwd = await realpath(options.cwd);
   if (!(await stat(cwd)).isDirectory()) throw new Error('--cwd must be an existing directory.');
-  const stateDir = path.resolve(options.stateDir ?? path.join(cwd, '.subharness'));
+  const stateDir = path.resolve(options.stateDir ?? await preferredDirectory(path.join(cwd, '.workerdeck'), path.join(cwd, '.subharness')));
   const port = options.port ?? 5174;
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('--port must be an integer from 0 to 65535.');
   const demo = options.demo ?? false;

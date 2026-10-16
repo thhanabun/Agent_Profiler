@@ -1,4 +1,4 @@
-# Subharness protocol fixtures
+# WorkerDeck protocol fixtures
 
 `examples.ts` is synthetic data for backend/UI development. It makes no model calls, starts no native harness and reads/writes no project files. All paths, models, checksums and native IDs are examples. Show a **SIMULATION / fixture** badge whenever these values are rendered. Do not submit fixture requests to a live bridge as an automated replay.
 

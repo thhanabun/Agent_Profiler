@@ -11,22 +11,22 @@ import { serveStdio } from '../src/protocol.js';
 import { createProfile, loadProfile, loadProfiles } from '../src/profiles.js';
 
 async function temp(work: (root: string) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'readiness-'));
   try { await work(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
 test('readiness reports missing environment, native setup, unsupported plugins and image platform without model calls', async () => {
-  const keys = ['SUBHARNESS_CODEX_BIN', 'SUBHARNESS_OPENCODE_BIN', 'SUBHARNESS_FIXTURE_REQUIRED'];
+  const keys = ['WORKERDECK_CODEX_BIN', 'WORKERDECK_OPENCODE_BIN', 'WORKERDECK_FIXTURE_REQUIRED'];
   const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
-    process.env.SUBHARNESS_CODEX_BIN = path.resolve('.subharness/missing-readiness-codex.exe');
-    process.env.SUBHARNESS_OPENCODE_BIN = path.resolve('.subharness/missing-readiness-opencode.exe');
-    delete process.env.SUBHARNESS_FIXTURE_REQUIRED;
+    process.env.WORKERDECK_CODEX_BIN = path.resolve('.workerdeck/missing-readiness-codex.exe');
+    process.env.WORKERDECK_OPENCODE_BIN = path.resolve('.workerdeck/missing-readiness-opencode.exe');
+    delete process.env.WORKERDECK_FIXTURE_REQUIRED;
     const profiles = await loadProfiles();
     const codex = structuredClone(profiles.find(profile => profile.manifest.id === 'codex')!);
-    codex.manifest.requiredEnv = ['SUBHARNESS_FIXTURE_REQUIRED'];
+    codex.manifest.requiredEnv = ['WORKERDECK_FIXTURE_REQUIRED'];
     codex.manifest.plugins = ['plugins/example'];
     codex.image = { digest: `sha256:${'a'.repeat(64)}`, runtimeVersion: '1.0.0', adapterVersion: '0.1.0', platform: 'unsupported-fixture', arch: process.arch };
     const result = await inspectProfiles([codex, profiles.find(profile => profile.manifest.id === 'implement')!]);
@@ -35,12 +35,12 @@ test('readiness reports missing environment, native setup, unsupported plugins a
       const check = result.codex!.checks!.find(check => check.kind === kind)!;
       assert.equal(check.status, 'blocked'); assert(check.action);
     }
-    assert.match(result.codex!.checks!.find(check => check.kind === 'environment')!.reason, /SUBHARNESS_FIXTURE_REQUIRED/);
+    assert.match(result.codex!.checks!.find(check => check.kind === 'environment')!.reason, /WORKERDECK_FIXTURE_REQUIRED/);
     assert.match(result.codex!.checks!.find(check => check.kind === 'image')!.reason, /unsupported-fixture/);
     assert.equal(result.codex!.checks!.find(check => check.kind === 'provider')!.status, 'unverified');
     assert.equal(result.implement!.available, false);
-    assert.match(result.implement!.checks!.find(check => check.kind === 'native')!.action!, /SUBHARNESS_OPENCODE_BIN/);
-    process.env.SUBHARNESS_FIXTURE_REQUIRED = 'fixture-value-must-never-appear';
+    assert.match(result.implement!.checks!.find(check => check.kind === 'native')!.action!, /WORKERDECK_OPENCODE_BIN/);
+    process.env.WORKERDECK_FIXTURE_REQUIRED = 'fixture-value-must-never-appear';
     const configured = await inspectProfiles([codex]);
     assert.equal(configured.codex!.checks!.find(check => check.kind === 'environment')!.status, 'passed');
     assert.doesNotMatch(JSON.stringify(configured), /fixture-value-must-never-appear/);
@@ -57,7 +57,7 @@ test('readiness validates skill source and resolves model overrides without crea
     }])); } });
   const source = path.join(root, 'profile with spaces');
   await createProfile(source, 'ready-fixture', 'codex');
-  const key = 'SUBHARNESS_MODEL_READY_FIXTURE', saved = process.env[key];
+  const key = 'WORKERDECK_MODEL_READY_FIXTURE', saved = process.env[key];
   try {
     process.env[key] = 'fixture-model-override';
     const ready = await manager.readiness(source);
@@ -112,8 +112,8 @@ test('stdio readiness replies independently so slow preflight does not block sto
 test('CLI check --json returns actionable setup errors and a nonzero exit code without starting a session', async () => temp(async root => {
   const source = path.join(root, 'profile with spaces');
   await createProfile(source, 'cli-ready-fixture', 'opencode');
-  const child = spawn(process.execPath, [path.resolve('bin/subharness.mjs'), 'check', source, '--json', '--cwd', root, '--store', path.join(root, 'images')], {
-    env: { ...process.env, SUBHARNESS_OPENCODE_BIN: path.join(root, 'missing-native-opencode') }, windowsHide: true, shell: false, timeout: 15000,
+  const child = spawn(process.execPath, [path.resolve('bin/workerdeck.mjs'), 'check', source, '--json', '--cwd', root, '--store', path.join(root, 'images')], {
+    env: { ...process.env, WORKERDECK_OPENCODE_BIN: path.join(root, 'missing-native-opencode') }, windowsHide: true, shell: false, timeout: 15000,
   });
   let stdout = '', stderr = '';
   child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr += chunk; });
@@ -121,7 +121,7 @@ test('CLI check --json returns actionable setup errors and a nonzero exit code w
   assert.equal(code, 1, stderr);
   const report = JSON.parse(stdout);
   assert.equal(report.reference, source); assert.equal(report.profileId, 'cli-ready-fixture'); assert.equal(report.available, false);
-  assert(report.checks.some((check: any) => check.kind === 'native' && check.action.includes('SUBHARNESS_OPENCODE_BIN')));
-  const manager = new SessionManager({ cwd: root, stateRoot: path.join(root, '.subharness'), store: path.join(root, 'images'), extraRoot: path.join(root, 'profiles') });
+  assert(report.checks.some((check: any) => check.kind === 'native' && check.action.includes('WORKERDECK_OPENCODE_BIN')));
+  const manager = new SessionManager({ cwd: root, stateRoot: path.join(root, '.workerdeck'), store: path.join(root, 'images'), extraRoot: path.join(root, 'profiles') });
   assert.deepEqual(await manager.list(), []);
 }));

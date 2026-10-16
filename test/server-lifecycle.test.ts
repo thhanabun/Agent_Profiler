@@ -6,11 +6,11 @@ import { startHost } from '../server/host.js';
 
 type Host = Awaited<ReturnType<typeof startHost>>;
 async function fixture(work: (root: string, open: (signal?: AbortSignal) => Promise<Host>) => Promise<void>) {
-  const parent = path.resolve('.subharness/tests');
+  const parent = path.resolve('.workerdeck/tests');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'host lifecycle with spaces-'));
-  const previous = process.env.SUBHARNESS_IMAGE_STORE;
-  process.env.SUBHARNESS_IMAGE_STORE = path.join(root, 'images');
+  const previous = process.env.WORKERDECK_IMAGE_STORE;
+  process.env.WORKERDECK_IMAGE_STORE = path.join(root, 'images');
   const hosts: Host[] = [];
   const open = async (signal?: AbortSignal) => {
     const host = await startHost({ cwd: root, port: 0, demo: true, stateDir: path.join(root, 'custom state with spaces') }, signal);
@@ -20,8 +20,8 @@ async function fixture(work: (root: string, open: (signal?: AbortSignal) => Prom
   finally {
     try { await Promise.allSettled(hosts.map(host => host.close())); }
     finally {
-      if (previous === undefined) delete process.env.SUBHARNESS_IMAGE_STORE;
-      else process.env.SUBHARNESS_IMAGE_STORE = previous;
+      if (previous === undefined) delete process.env.WORKERDECK_IMAGE_STORE;
+      else process.env.WORKERDECK_IMAGE_STORE = previous;
       assert(root.startsWith(parent + path.sep));
       await rm(root, { recursive: true, force: true });
     }
@@ -54,7 +54,7 @@ test('custom local sessions survive restart and shutdown closes an open SSE conn
   await assert.rejects(readFile(path.join(first.stateDir, 'runner.lock')), { code: 'ENOENT' });
   const saved = JSON.parse(await readFile(path.join(first.stateDir, 'sessions', `${sessionId}.json`), 'utf8'));
   assert.equal(saved.title, 'Persisted custom state');
-  await assert.rejects(readFile(path.join(root, '.subharness/sessions', `${sessionId}.json`)), { code: 'ENOENT' });
+  await assert.rejects(readFile(path.join(root, '.workerdeck/sessions', `${sessionId}.json`)), { code: 'ENOENT' });
   const second = await open();
   assert(first.token !== second.token);
   const denied = await fetch(new URL('/api/host', second.url), {

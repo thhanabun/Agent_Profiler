@@ -8,14 +8,14 @@ import { stopProcess } from './process.js';
 import type { RunInput, RunResult } from './adapters.js';
 
 export async function findCodex(): Promise<string> {
-  const explicit = process.env.SUBHARNESS_CODEX_BIN;
-  if (explicit && /\.(?:cmd|bat|ps1)$/i.test(explicit)) throw new Error('SUBHARNESS_CODEX_BIN must point to the native executable, not a shell shim.');
+  const explicit = process.env.WORKERDECK_CODEX_BIN;
+  if (explicit && /\.(?:cmd|bat|ps1)$/i.test(explicit)) throw new Error('WORKERDECK_CODEX_BIN must point to the native executable, not a shell shim.');
   const candidates = explicit ? [path.resolve(explicit)] : (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)
     .flatMap(directory => process.platform === 'win32' ? [path.join(directory, 'codex.exe'),
       path.join(directory, `node_modules/@openai/codex/node_modules/@openai/codex-win32-${process.arch}/vendor/${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-pc-windows-msvc/codex/codex.exe`)]
       : [path.join(directory, 'codex')]);
   for (const executable of candidates) { try { await access(executable); return executable; } catch { /* Try the next native location. */ } }
-  throw new Error('Codex is missing. Install the native Codex CLI, or set SUBHARNESS_CODEX_BIN to its executable. Then run `codex login`.');
+  throw new Error('Codex is missing. Install the native Codex CLI, or set WORKERDECK_CODEX_BIN to its executable. Then run `codex login`.');
 }
 
 export async function getCodexAuth(): Promise<{ available: boolean; reason: string }> {
@@ -24,7 +24,7 @@ export async function getCodexAuth(): Promise<{ available: boolean; reason: stri
     const { stdout, stderr } = await promisify(execFile)(executable, ['login', 'status'], { windowsHide: true, timeout: 10000, maxBuffer: 128 * 1024 });
     if (!/logged in/i.test(stdout + stderr)) throw new Error('No native login.');
     return { available: true, reason: 'Native Codex login found; provider access is checked on the next model call.' };
-  } catch { return { available: false, reason: 'Install native Codex (or set SUBHARNESS_CODEX_BIN), then run `codex login`.' }; }
+  } catch { return { available: false, reason: 'Install native Codex (or set WORKERDECK_CODEX_BIN), then run `codex login`.' }; }
 }
 
 const envelopeSchema = z.object({ id: z.union([z.string(), z.number()]).optional(), method: z.string().optional(),
@@ -149,7 +149,7 @@ export async function runCodex(input: RunInput, model?: string, launch: typeof s
   input.signal.addEventListener('abort', abort, { once: true });
   try {
     if (input.signal.aborted) abort();
-    await call('initialize', { clientInfo: { name: 'subharness', title: 'Subharness', version: '0.1.0' } });
+    await call('initialize', { clientInfo: { name: 'workerdeck', title: 'WorkerDeck', version: '0.1.0' } });
     send({ method: 'initialized', params: {} });
     if (input.profile.manifest.skills.length) await call('skills/extraRoots/set', { extraRoots: [...new Set(input.profile.manifest.skills.map(skill => path.dirname(safePath(root, skill))))] });
     const options = { cwd: input.cwd, ...(model ? { model } : {}), approvalPolicy: 'untrusted', sandbox: planner ? 'read-only' : 'workspace-write' };

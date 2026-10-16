@@ -1,7 +1,11 @@
 node_modules/
+.workerdeck/
 .subharness/
 *.agentpack
 .env
 .env.*
 !.env.example
 dist/
+docs/HANDOFF_*.md
+docs/PROJECT_GAP_ANALYSIS.md
+docs/SYSTEM_OVERVIEW.md

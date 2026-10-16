@@ -9,11 +9,11 @@ import { copyImage, DIGEST, imageReference, jsonBytes, listImages, loadImage, pa
 export type RegistryOptions = { plainHttp?: boolean; registryConfig?: string };
 
 export async function findOras(): Promise<string> {
-  const explicit = process.env.SUBHARNESS_ORAS_BIN;
-  if (explicit && /\.(cmd|bat|ps1)$/i.test(explicit)) throw new Error('SUBHARNESS_ORAS_BIN must be a native executable.');
+  const explicit = process.env.WORKERDECK_ORAS_BIN;
+  if (explicit && /\.(cmd|bat|ps1)$/i.test(explicit)) throw new Error('WORKERDECK_ORAS_BIN must be a native executable.');
   const candidates = explicit ? [path.resolve(explicit)] : (process.env.PATH ?? '').split(path.delimiter).filter(Boolean).map(dir => path.join(dir, process.platform === 'win32' ? 'oras.exe' : 'oras'));
   for (const candidate of candidates) { try { await access(candidate); return candidate; } catch { /* Continue executable discovery. */ } }
-  throw new Error('Install ORAS CLI 1.3+ from https://oras.land/docs/installation/ or set SUBHARNESS_ORAS_BIN. Build/inspect/run local images do not need ORAS.');
+  throw new Error('Install ORAS CLI 1.3+ from https://oras.land/docs/installation/ or set WORKERDECK_ORAS_BIN. Build/inspect/run local images do not need ORAS.');
 }
 
 async function oras(args: string[], maximum = 1024 * 1024): Promise<string> {
