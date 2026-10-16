@@ -36,20 +36,13 @@ npm run workerdeck -- run --cwd "/path/to/project"
 
 ### Web app
 
-Build and serve the local web app against a project directory:
-
-```sh
-npm run web:build
-npm run web:host -- --cwd "/path/to/project" --port 4180
-```
-
-Open `http://127.0.0.1:4180`. For frontend development, keep the host running and start `npm run web:dev` in a second terminal; open `http://127.0.0.1:5173`. All commands run from the repository root. See [web setup and API details](web/README.md).
+Use the dependencies installed above, then follow [web setup and API details](web/README.md) for build, host and frontend development commands. There is no separate web package install.
 
 ## Project First web workspace
 
 The integrated React/Vite/Tailwind client connects automatically through the host's same-origin bootstrap. Start with one message; choose profiles only when needed. Saved chats, streamed output, tasks, runs, file diffs, and explicit trust/permission/question responses use the existing runtime. English and Thai are supported. Native authentication stays on the machine.
 
-Run all npm scripts at the repository root. `npm run host -- ...` and `npm run web:host -- ...` start the same server; its default port is 5174, so pass 4180 when using the checked-in Vite proxy. For development, run `npm run web:dev` in a second terminal and open `http://127.0.0.1:5173`. Older hosts without bootstrap are supported through a token-entry prompt and their existing authenticated routes; the token stays in memory.
+Run npm scripts at the repository root. See [web setup](web/README.md) and [host details](server/README.md) for ports, development proxy, offline simulation and API behavior. Older hosts without bootstrap are supported through a token-entry prompt and their existing authenticated routes; the token stays in memory.
 
 For an explicit offline simulation, add `--demo` to the host command. Simulation uses the actual bridge and session store with fixed demo responses; it does not call models or edit project files. Stop the host with Ctrl+C to stop active work and save state. [Web setup, API and verification](web/README.md).
 
