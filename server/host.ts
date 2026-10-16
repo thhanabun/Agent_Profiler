@@ -42,6 +42,8 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
   };
   bridge.on('event', event => { for (const response of streams.keys()) sendEvent(response, event); });
   const handle = async (request: IncomingMessage, response: ServerResponse) => {
+    let rpcAlias = false;
+    let requestId: string | null = null;
     try {
       if (request.headers.host !== origin.slice(7) || (request.headers.origin !== undefined && request.headers.origin !== origin)
         || (request.headers['sec-fetch-site'] !== undefined && !['same-origin', 'none'].includes(String(request.headers['sec-fetch-site']))))
@@ -52,6 +54,11 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
       if (url.pathname !== '/api' && !url.pathname.startsWith('/api/')) {
         await serveStatic(request, response, webRoot); return;
       }
+      if (request.method === 'GET' && url.pathname === '/api/bootstrap') {
+        if (url.search) throw new HttpError(400, 'Unexpected query parameters.');
+        json(response, 200, { token, project: { name: path.basename(cwd) || cwd, cwd }, mode: demo ? 'demo' : 'live', ready: true }); return;
+      }
+      rpcAlias = url.pathname === '/api/rpc';
       const supplied = Buffer.from(request.headers.authorization ?? '');
       if (supplied.length !== authorization.length || !timingSafeEqual(supplied, authorization)) throw new HttpError(401, 'Bearer token required.');
       if (url.search) throw new HttpError(400, 'Unexpected query parameters.');
@@ -74,7 +81,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
         return;
       }
       const method = url.pathname.startsWith('/api/') ? url.pathname.slice(5) : '';
-      if (request.method !== 'POST' || !requestSchema.shape.method.safeParse(method).success) throw new HttpError(404, 'Route not found.');
+      if (request.method !== 'POST' || !rpcAlias && !requestSchema.shape.method.safeParse(method).success) throw new HttpError(404, 'Route not found.');
       if (request.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') throw new HttpError(415, 'Content-Type must be application/json.');
       const chunks: Buffer[] = [];
       let size = 0;
@@ -86,11 +93,15 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
         }
         chunks.push(chunk);
       }
-      let parsed: ProtocolRequest;
-      try { parsed = parseRequest(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)))); }
+      let envelope: ReturnType<typeof requestSchema.parse>;
+      try { envelope = requestSchema.parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks)))); }
       catch { throw new HttpError(400, 'Invalid version 1 JSONL request.'); }
-      if (parsed.method !== method) throw new HttpError(400, 'Route and JSONL method must match.');
-      if (Buffer.byteLength(JSON.stringify({ ...parsed, id: '0'.repeat(36) })) + 1 > 65536) throw new HttpError(413, 'Request exceeds the 64 KiB JSONL limit.');
+      requestId = envelope.id;
+      if (!rpcAlias && envelope.method !== method) throw new HttpError(400, 'Route and JSONL method must match.');
+      if (Buffer.byteLength(JSON.stringify({ ...envelope, id: '0'.repeat(36) })) + 1 > 65536) throw new HttpError(413, 'Request exceeds the 64 KiB JSONL limit.');
+      let parsed: ProtocolRequest;
+      try { parsed = parseRequest(envelope); }
+      catch (error) { throw new HttpError(400, `Invalid method parameters: ${error instanceof Error ? error.message : String(error)}`); }
       if (response.destroyed) return;
       const controller = new AbortController();
       const disconnected = () => { if (!response.writableEnded) controller.abort(); };
@@ -107,7 +118,7 @@ export async function startHost(options: { cwd: string; port?: number; stateDir?
         json(response, 200, await bridge.request(parsed, controller.signal));
       } finally { response.off('close', disconnected); }
     } catch (error) {
-      json(response, error instanceof HttpError ? error.status : 502, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      json(response, error instanceof HttpError ? error.status : 502, { ...(rpcAlias ? { version: 1, id: requestId } : {}), ok: false, error: error instanceof Error ? error.message : String(error) });
     }
   };
   const server = createServer((request, response) => {

@@ -1,6 +1,6 @@
 # Profiles, sessions and native runs
 
-This document describes the current Subharness runtime. For the planned web client and local Node host, see [system overview](SYSTEM_OVERVIEW.md) and the [UI protocol](UI_PROTOCOL.md).
+This document describes the current Subharness runtime. For the web client and local Node host, see [system overview](SYSTEM_OVERVIEW.md), the [web README](../web/README.md), and the [UI protocol](UI_PROTOCOL.md).
 
 An **Agent Profile** describes one harness, model, instructions, skills and plugins. An **image** distributes a profile with its source checksum and native runtime requirements. A **session** selects the profiles and assigns their roles. A **run** records one native harness invocation, including planner calls and retry attempts.
 

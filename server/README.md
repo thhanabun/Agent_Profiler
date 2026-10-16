@@ -1,198 +1,123 @@
 # Local Subharness host
 
-The backend work for Steps 1–7 of the [handoff](../docs/HANDOFF_BACKEND.md) is implemented on `feat/subharness-local-host`, based on `origin/agent`. The host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. `Engine`, `SessionManager`, native accounts and `.subharness` remain in the CLI. Frontend implementation and full browser integration remain pending.
-
-The default command starts HTTP instead of the Step-1 terminal JSONL passthrough. It serves a frontend build from the repository's fixed `web/dist` directory. The frontend itself is not present yet, so static page requests currently return HTTP 503 with build guidance.
+The integrated `server/` host starts one existing CLI child and translates HTTP/SSE to its JSONL v1 protocol. The Project First React/TypeScript/Vite/Tailwind client under `web/` uses this host. `Engine`, `SessionManager`, native accounts and the local session store remain in the CLI; the host does not implement another agent runner.
 
 ## Start
 
-Requires Node.js 24+ and `npm ci`. From PowerShell:
+Requires Node.js 24+. Run these commands at the repository root:
 
-```powershell
-Set-Location 'C:\KMUTT\Competition\Uhack'
-$hostProject = Join-Path (Get-Location).Path '.subharness\manual host project'
-New-Item -ItemType Directory -Path $hostProject -Force | Out-Null
-node --import tsx server/index.ts --cwd "$hostProject" --demo --port 5174
+```sh
+npm ci
+npm run web:build
+npm run host -- --cwd /absolute/path/to/project --port 4180
 ```
 
-Expected: one `host.ready` JSON line with `url`, a random `token`, canonical `cwd`, `stateDir` and `demo: true`. The process stays running. Keep the token private; it changes on every start and is not a provider credential. `--demo` is explicit simulation and makes no model calls. Without it, submitted work uses the existing native accounts and can consume usage.
+`npm run web:host -- ...` is an alias for the same server. All scripts and dependencies live in the root `package.json`; there is no separate web/server package install. Quote paths containing spaces on Windows. Open exactly `http://127.0.0.1:4180`.
 
-`--cwd` must name an existing directory. The optional `--state-dir` is trusted startup configuration; its default is `<cwd>/.subharness`. The default port is 5174; `--port 0` asks the OS for a free port. No browser operation can change these settings.
+The host prints one `host.ready` JSON line containing its `url`, random per-start `token`, canonical `cwd`, `stateDir` and `demo` flag, then stays running. The host listens only after the CLI's `ready` event; the bootstrap's `ready:true` means transport initialization, not native/provider readiness. The token is a local host credential, not a provider API key.
+
+`--cwd` must be an existing directory. `--state-dir` is trusted startup configuration and defaults to `<cwd>/.subharness`. The default port is 5174; passing 4180 matches the checked-in Vite proxy. `--port 0` requests a free port. The browser shows the project path read-only and cannot change startup paths or native credentials.
+
+For an explicit offline simulation with separate state:
+
+```sh
+npm run host -- --cwd /absolute/path/to/project --port 4181 --demo --state-dir /absolute/path/to/demo-state
+```
+
+Simulation uses the real bridge, engine and persistence with fixed `runDemo` responses. It does not call native models or edit project files. Without `--demo`, an explicit submitted turn uses the configured native accounts and can consume provider usage. Opening a saved session, reading metadata, or checking local readiness does not submit work or approve a request.
 
 ## HTTP contract
 
-All requests, including static files, must use the exact printed `127.0.0.1` Host and either the same Origin or no Origin for non-browser tools. Foreign/null Origins and cross-site fetches are rejected. No CORS wildcard is emitted.
+Static and API requests must use the exact printed `127.0.0.1` Host and either its same Origin or no Origin for non-browser tools. Foreign/null Origins and cross-site fetches are rejected. No wildcard CORS is emitted. API routes reject query parameters.
 
-All API endpoints, including SSE, require `Authorization: Bearer <token>` and reject query parameters. Static pages and assets do not require the token.
+| Endpoint | Authentication | Request / response |
+|---|---|---|
+| `GET /api/bootstrap` | Same-origin/Host/fetch-site guards; no bearer header | `{token,project:{name,cwd},mode:'live'|'demo',ready:true}` for automatic browser setup. No-store. |
+| `POST /api/rpc` | `Authorization: Bearer <token>` | Full `{version:1,id,method,params}` request. Returns the correlated original `ProtocolResponse`. |
+| `GET /api/events` | Bearer header | Named `ready`, `session.state`, `operation.error` SSE events, each containing the original JSONL event as JSON `data`. |
+| `GET /api/host` | Bearer header | Existing read-only `{cwd,stateDir,demo,methods}` route; does not return the token. |
+| `POST /api/<method>` | Bearer header | Existing full request envelope; URL/body methods must match. Same validation and CLI dispatch as `/api/rpc`. |
 
-| Endpoint | Request / response |
-|---|---|
-| `GET /api/host` | Read-only `cwd`, `stateDir`, `demo` and available JSONL method names. No token is returned. |
-| `POST /api/<method>` | Existing `{version:1,id,method,params}` JSONL envelope; URL and body method must match. Returns the original response envelope and caller ID. |
-| `GET /api/events` | Authenticated SSE with named `ready`, `session.state` and `operation.error` events, each containing the original JSONL event as `data`. |
+The current browser uses bootstrap/RPC aliases first. If bootstrap returns 401 or 404, it prompts for the terminal token and uses the existing `/api/host` and per-method routes. Tokens stay in memory and are sent only in Authorization headers, never URLs or browser storage. A missing/rotated token prompts again. Only the UI language preference is persisted in browser storage.
 
-Every method in [UI_PROTOCOL.md](../docs/UI_PROTOCOL.md) has a matching POST route, including `profiles.choices`, `profiles.readiness`, `session.list`, `session.create`, `session.open`, controls and `request.respond`. The host and CLI both use `parseRequest` from `src/contracts.ts` to validate the envelope and method parameters. Invalid parameters return HTTP 400 before reaching the child. Session semantics stay in the CLI; a runtime rejection remains HTTP 200 with `ok:false`. Successful asynchronous acceptance is not proof of completed work.
+Methods and parameter types come from [src/contracts.ts](../src/contracts.ts) and [UI_PROTOCOL.md](../docs/UI_PROTOCOL.md). Session IDs are UUIDs, with `latest` allowed only for open. Unknown parameter fields fail strict schemas. The CLI owns session creation, profile roles, trust, permission responses and execution.
 
-Transport errors use `{ok:false,error}`: 400 invalid envelope/params/method/URL, 401 missing/wrong token, 403 unexpected Host/Origin or unlisted profile reference, 404 route missing, 413 request too large, 415 wrong content type, 429 too many SSE clients, and 502/503 CLI unavailable/stopping.
+Both RPC styles check `session.create` and `profiles.readiness` references against a freshly loaded `profiles.choices` allowlist. Arbitrary profile directories, project paths, executable paths, shell configuration and credential values are not accepted as browser configuration. Native project/user policy still applies. Nothing grants trust or tool permission automatically.
 
-Only references returned by `profiles.choices` may be supplied to `session.create` or `profiles.readiness`. Arbitrary profile directories, executable paths, project paths and credentials are not accepted as HTTP configuration. The CLI still validates all parameters and owns profile trust and tool permission requests. Nothing auto-approves a request.
+A successful asynchronous `{accepted:true}` response means work was accepted, not completed. Actual `busy`, `status`, messages, tasks, runs, request cards and output arrive in session snapshots. A CLI rejection is HTTP 200 with `ok:false`. Transport failures use an HTTP error status and `ok:false,error`; `/api/rpc` also includes `version:1,id` when available.
 
-The UI should display `GET /api/host`'s `cwd` as read-only text. There is no project-update or credential endpoint. Unknown parameter fields fail in the shared strict schemas before any operation runs. Session IDs remain UUIDs (or `latest` for open), rather than filesystem paths. The frontend still needs to implement that read-only display when it is added.
+Typical transport statuses: 400 invalid envelope/parameters/URL, 401 missing/wrong token, 403 unexpected Host/Origin or unlisted reference, 404 missing route, 413 oversized request, 415 incorrect content type, 429 excess event clients, and 502/503 unavailable/stopping CLI.
 
-Requests are byte-limited to 64 KiB including the reserialized JSONL envelope and newline. At most 64 CLI requests and 16 event streams may be pending. A request times out after 30 seconds; a lost/timed-out mutation may already have run, so do not automatically retry it. IDs correlate replies, not idempotency receipts.
+Limits remain 64 KiB including the reserialized JSONL envelope/newline, 64 pending CLI requests and 16 SSE clients. A CLI request times out after 30 seconds. A lost/timed-out mutation may already have run: never retry it automatically. Request IDs correlate responses; they are not idempotency receipts.
 
-Use streaming `fetch` for browser SSE because native `EventSource` cannot set an Authorization header. Keep the token in memory, never in URLs or browser storage. Reconnect receives readiness and the latest cached state; there is no event-history replay. Replace state snapshots rather than appending output. Slow event consumers are disconnected and can reconnect; stream disconnects do not stop the shared runtime.
+## Streaming, reconnect and restart
 
-## Static frontend and development proxy
+Use streaming `fetch`, since native `EventSource` cannot set a bearer header. A new stream receives `ready` and the latest cached session snapshot; it does not replay event history. Replace each full state snapshot instead of appending its output. Keepalive comments arrive every 15 seconds. Slow consumers are disconnected; closing a browser stream does not stop the shared runtime.
 
-The static root is `<repository>/web/dist`, independent of the selected project. It cannot be changed through HTTP or a startup option. GET and HEAD serve whitelisted assets; extensionless routes fall back to `index.html` only when the request accepts HTML. Missing assets return 404 once a build exists. Directory listings, dotfiles, source extensions, traversal and symlinks outside the build are blocked. Static responses use `nosniff`, `no-store` and a same-origin Content Security Policy.
+The host closes streams when the CLI fails; it does not emit an extra `host.error` event. The browser also accepts that event from compatible hosts. It filters sequence/session IDs, refreshes active state on reconnect and rejects stale results during session switches. Ordinary same-host reconnects retain the current session.
 
-With the host running in Terminal A, check the current missing-build state from another terminal:
+A restarted host has a new token. The browser clears the old active selection, view and cached readiness/catalog state when token, mode or project identity changes, while preserving its unsent draft. It does not silently open, resume or submit a session. The user explicitly opens a saved session or starts another one. Legacy connections require the new terminal token after rotation.
 
-```powershell
-Set-Location 'C:\KMUTT\Competition\Uhack'
-curl.exe -i http://127.0.0.1:5174/
-curl.exe -i http://127.0.0.1:5174/api/host
-curl.exe -i -H "Origin: https://example.com" http://127.0.0.1:5174/
+There is one active CLI session per host; browser tabs share it. A saved session keeps its recorded profiles and native-session references. Live and demo histories cannot be opened in each other's modes. Trust, permission and question cards require an explicit answer tied to the current request UUID; text typed into ordinary chat is not an approval.
+
+## Static frontend and development
+
+Static files come only from the repository's fixed `web/dist`, independent of the selected project. GET/HEAD serve permitted asset types; extensionless navigation falls back to `index.html` only for an HTML Accept header. Missing builds return 503 with build guidance; missing assets return 404. Directory listings, dotfiles, source extensions, traversal and symlinks outside the build are blocked. Responses use `nosniff`, `no-store` and a same-origin Content Security Policy.
+
+The build is produced with `npm run web:build` at the repository root. The host reads it on request, so replacing built assets does not require a host restart. It does not expose the project filesystem as static content.
+
+For development, keep the host running on 4180 and use a second terminal:
+
+```sh
+npm run web:dev
 ```
 
-Expected: 503 for the absent build, 401 for the API without a token, and 403 for the foreign Origin. Static requests do not bypass Host/Origin validation or reveal the token.
+Open exactly `http://127.0.0.1:5173`. The checked-in [Vite config](../web/vite.config.ts) proxies relative `/api/...` requests to `http://127.0.0.1:4180` and rewrites only its expected development Host/Origin. Foreign inputs are not blindly rewritten. Production serves both UI and API on the host's own origin.
 
-When the frontend supplies `web/package.json` with a build script, build from the repository root:
+Task context is pasted text in the next user message. The client does not claim to upload local files, provide a general file manager, or execute work in the browser. Its task/file diffs are runtime records. Provider credentials stay in the native tools; readiness probes do not prove a live provider turn will succeed.
 
-```powershell
-npm --prefix web run build
-curl.exe -I http://127.0.0.1:5174/
-curl.exe -i -H "Accept: text/html" http://127.0.0.1:5174/sessions/example
-curl.exe -i http://127.0.0.1:5174/assets/missing.js
-```
+## Manual protocol checks
 
-Expected after a valid build: root HEAD returns 200 with no body, the HTML navigation returns the SPA entry point, and the missing JavaScript asset returns 404. The host reads the build on each request; no restart is needed. There is currently no root `web:build` script and no completed browser UI to verify.
-
-For development, merge this into the future `web/vite.config.ts`, retaining the UI's plugins and build settings. See [Vite's proxy options](https://vite.dev/config/server-options.html#server-proxy).
-
-```ts
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-  server: {
-    host: '127.0.0.1',
-    port: 5173,
-    strictPort: true,
-    cors: false,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:5174',
-        changeOrigin: true,
-        configure(proxy) {
-          proxy.on('proxyReq', (outgoing, incoming) => {
-            if (incoming.headers.origin === 'http://127.0.0.1:5173')
-              outgoing.setHeader('Origin', 'http://127.0.0.1:5174');
-          });
-        },
-      },
-    },
-  },
-});
-```
-
-Open the dev UI at exactly `http://127.0.0.1:5173` and use relative `/api/...` URLs for requests and streamed SSE. The proxy changes Host and rewrites only that exact approved Origin; unknown/null Origins remain unchanged and the host rejects them. Do not add a blanket Origin rewrite, token URL or token persistence. The UI must accept the terminal token and keep it only in memory. Vite, its proxy and the full browser flow remain unverified until the frontend exists.
-
-## Manual HTTP and SSE tests
-
-Keep the host running in Terminal A. In Terminal B:
+With the host running, use a second PowerShell terminal. Read the printed token without putting it in a URL:
 
 ```powershell
-$hostUrl = 'http://127.0.0.1:5174'
-$hostToken = Read-Host 'Paste the token printed in Terminal A'
+$hostUrl = 'http://127.0.0.1:4180'
+$hostToken = Read-Host 'Paste the token printed by the host'
 $hostHeaders = @{ Authorization = "Bearer $hostToken"; Origin = $hostUrl }
 $body = @{ version = 1; id = 'manual-list'; method = 'session.list'; params = @{} } | ConvertTo-Json -Compress
-Invoke-RestMethod "$hostUrl/api/session.list" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
+Invoke-RestMethod "$hostUrl/api/rpc" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
 Invoke-RestMethod "$hostUrl/api/host" -Headers $hostHeaders
 ```
 
-Expected: `{version:1,id:manual-list,ok:true,result:[]}` for an empty project; metadata shows the fixed project/state directory and `demo:true`, without the token.
+Expected for an empty project: a correlated `session.list` response with `result:[]`. Metadata reports the fixed project/state directory. The legacy POST equivalent is `$hostUrl/api/session.list` with the same body.
 
-Check a catalog profile's local setup before creating a session:
+To inspect bootstrap and streaming:
 
 ```powershell
-$body = @{ version = 1; id = 'manual-ready'; method = 'profiles.readiness'; params = @{ reference = 'implement' } } | ConvertTo-Json -Compress
-$readiness = Invoke-RestMethod "$hostUrl/api/profiles.readiness" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
-$readiness | ConvertTo-Json -Depth 8
+Invoke-RestMethod "$hostUrl/api/bootstrap" -Headers @{ Origin = $hostUrl }
+curl.exe --no-buffer -H "Authorization: Bearer $hostToken" "$hostUrl/api/events"
 ```
 
-Expected: `ok:true` with `result.reference`, `checkedAt`, `available` and structured `checks`. Blocked checks retain their repair `action`; availability depends on the machine's setup. Readiness does not create a session or make a model call, and provider checks can remain `unverified`. An unlisted reference returns HTTP 403. Requests are correlated by ID even when readiness completes after a later request.
+Expected: bootstrap returns the host token/project/mode/readiness; SSE starts with named `ready` and stays open with keepalives. Bootstrap output is credential-bearing; do not share its token. An unauthenticated `/api/host` or RPC request gets 401; a foreign/null Origin gets 403, including for bootstrap. Query tokens do not authenticate requests.
 
-Open an event stream in Terminal C using the same token:
+## Shutdown and verification
 
-```powershell
-$hostToken = Read-Host 'Paste the token printed in Terminal A'
-curl.exe --no-buffer -H "Authorization: Bearer $hostToken" http://127.0.0.1:5174/api/events
-```
+Ctrl+C or stdin EOF ends the CLI input stream and gives the runtime time to stop work, flush session JSON and release its lock. The bridge waits up to ten seconds for graceful child shutdown, then terminates its process tree if needed. The host ends SSE and allows up to five seconds for stalled network clients. Unexpected child failure exits without launching a replacement runner.
 
-Expected: `event: ready` and a JSON `data:` line. It stays open, with periodic keepalive comments.
+Restart with the same `--cwd`, `--state-dir` and mode to list/open saved sessions. Interrupted work is not resumed automatically. Existing CLI stale-lock recovery checks the recorded PID. Changing projects requires a new trusted host startup path.
 
-Back in Terminal B, create a local demo session:
+Run the verification commands from the repository root:
 
-```powershell
-$body = @{ version = 1; id = 'manual-create'; method = 'session.create'; params = @{ direct = 'implement'; title = 'Manual HTTP test' } } | ConvertTo-Json -Compress
-$created = Invoke-RestMethod "$hostUrl/api/session.create" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
-$created.result.session.id
-```
-
-Expected: a session UUID and `ok:true`. Terminal C receives `event: session.state` with the same session ID. Stop only Terminal C's curl with Ctrl+C, then reopen the stream: it receives `ready` and the latest state; the session remains available.
-
-Negative checks:
-
-| Action | Expected result |
-|---|---|
-| Omit the Authorization header | HTTP 401. |
-| Send `Origin: https://example.com` or `Origin: null` | HTTP 403. |
-| Use `Host: localhost:5174`, a different port, or `Sec-Fetch-Site: cross-site` | HTTP 403; only the printed loopback origin is accepted. |
-| Put the token in the URL without an Authorization header | HTTP 401; the URL does not authenticate a request. |
-| Open a seventeenth authenticated event stream | HTTP 429; normal API requests remain available. |
-| Send malformed JSON or mismatching URL/body methods | HTTP 400. |
-| Send more than the JSONL byte limit | HTTP 413. |
-| Supply an arbitrary directory as `params.direct` | HTTP 403; no session is created. |
-| Add `cwd`, `shell`, `executable` or `credentials` to `session.create` params | HTTP 400 with `ok:false`; no session is created and `/api/host` stays unchanged. |
-| Run another host on the same project | Nonzero exit; the first host retains its lock. |
-
-Stop Terminal A with Ctrl+C or stdin EOF. The host ends CLI stdin and waits for the existing runtime to flush and release its lock. Session JSON remains in the fixed state directory. Windows console Ctrl+C was checked manually: the child exited, the lock disappeared and the listener refused new connections. Automated EOF shutdown also passed.
-
-Startup cancellation, child errors/stdout EOF and occupied ports close the host without starting a replacement runner. Unexpected CLI failure exits nonzero. Normal shutdown lets the CLI flush first, ends SSE responses and allows up to five seconds for stalled network clients to disconnect. It does not force-kill the CLI. After a crash, the existing CLI lock recovery checks whether the saved PID is alive before recovering a stale lock.
-
-To check persistence manually, restart with exactly the same `--cwd`, `--state-dir` (if supplied) and `--demo` setting. Copy the newly printed token into Terminal B, then list/open the saved session. Expected: the session ID and title remain; the old token gets HTTP 401. Demo and live histories remain separate. Changing projects requires stopping this host and starting another with the new trusted project path.
-
-## Active shutdown and trust tests
-
-To check interruption, create a demo session as above, keep Terminal C streaming, then submit from Terminal B:
-
-```powershell
-$sessionId = $created.result.session.id
-$body = @{ version = 1; id = 'manual-submit'; method = 'session.submit'; params = @{ sessionId = $sessionId; text = 'Offline shutdown check' } } | ConvertTo-Json -Compress
-Invoke-RestMethod "$hostUrl/api/session.submit" -Method Post -Headers $hostHeaders -ContentType 'application/json' -Body $body
-```
-
-Expected: `ok:true,result.accepted:true`, followed by busy/running SSE state. Press Ctrl+C in Terminal A while the task is running. After shutdown, inspect the saved session:
-
-```powershell
-$savedFile = Join-Path $hostProject ".subharness\sessions\$sessionId.json"
-$saved = Get-Content -Raw $savedFile | ConvertFrom-Json
-$saved.tasks | Select-Object id, status
-$saved.runs | Select-Object id, status
-Test-Path (Join-Path $hostProject '.subharness\runner.lock')
-```
-
-Expected for an interrupted task: task/run status `stopped`, partial output retained, and `False` for the lock. Restart and open the same session: it remains stopped until explicitly resumed. If the short demo finished before Ctrl+C, the saved status is `completed`; repeat while it is busy to test interruption.
-
-For a safe trust check, run `node --import tsx --test test/server-permissions.test.ts`. It uses isolated real-mode state, disables the native executable, and answers only `no`. Expected: a passing test proving trust title/detail/UUID reach SSE, stale and replayed IDs fail, chat text cannot approve, and denial creates no native session or trust entry. The host never supplies an approval automatically.
-
-## Checks
-
-```powershell
+```sh
 npm run typecheck
-node --import tsx --test test/server.test.ts test/server-http.test.ts test/server-lifecycle.test.ts test/server-static.test.ts test/server-shutdown.test.ts test/server-permissions.test.ts test/server-sse.test.ts
+npm run typecheck:web
+npm run typecheck:host
+npm run web:build
+npm run test:web
+npm run test:host
 npm test
 ```
 
-Host tests use temporary projects and explicit demo mode, except the deny-only trust test with native execution disabled. They cover real CLI HTTP round trips, collision-safe IDs, authentication/origin/body limits, SSE state/error delivery and reconnects, lock contention, EOF shutdown, startup cancellation, occupied-port cleanup, custom-state persistence, token rotation, stale-lock recovery, active-run shutdown and exact trust-request IDs. Static tests use a tiny temporary build to check MIME/GET/HEAD behavior, SPA fallback, missing-build guidance and path/symlink isolation. They do not call providers or verify a completed frontend.
+Host tests use temporary projects and explicit demo mode, except deny-only trust tests with native execution disabled. They exercise HTTP/JSONL correlation, aliases and legacy authentication, origin/body limits, SSE, persistence, lock contention, shutdown and exact request IDs. Static tests use temporary builds. Client tests cover streaming/abort, token handling, automatic/legacy routing and stale session/host responses.
+
+Final browser/proxy acceptance for the integrated build must be recorded after checking the current revision. These instructions and test coverage do not claim a completed live provider turn. See [web/README.md](../web/README.md) for the UI flow and [TESTING.md](../docs/TESTING.md) for runtime/platform evidence.

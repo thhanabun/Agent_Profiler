@@ -94,6 +94,56 @@ async function events(host: Host) {
   return { next, until, close: async () => { controller.abort(); await reader.cancel().catch(() => {}); } };
 }
 
+test('browser bootstrap exposes only the expected startup contract behind same-origin guards', { timeout: 15000 }, () => fixture(async (host, root) => {
+  const response = await http(host, '/api/bootstrap', undefined, { authorization: '' });
+  assert.equal(response.status, 200);
+  assert.deepEqual(JSON.parse(response.body), { token: host.token, project: { name: path.basename(root), cwd: host.cwd }, mode: 'demo', ready: true });
+  assert.equal(response.headers['cache-control'], 'no-store');
+  assert.equal(response.headers['x-content-type-options'], 'nosniff');
+  assert.equal(response.headers['access-control-allow-origin'], undefined);
+  const foreignHeaders: Record<string, string>[] = [{ host: 'attacker.example' }, { origin: 'https://attacker.example' }, { origin: 'null' }, { 'sec-fetch-site': 'cross-site' }, { 'sec-fetch-site': 'same-site' }];
+  for (const headers of foreignHeaders) {
+    const rejected = await http(host, '/api/bootstrap', undefined, { authorization: '', ...headers });
+    assert.equal(rejected.status, 403); assert(!rejected.body.includes(host.token));
+  }
+  assert.equal((await http(host, '/api/bootstrap?token=ignored', undefined, { authorization: '' })).status, 400);
+  const metadata = await http(host, '/api/host');
+  assert.equal(metadata.status, 200); assert(!metadata.body.includes(host.token));
+  assert.equal((await http(host, '/api/host', undefined, { authorization: '' })).status, 401);
+}));
+
+test('generic RPC preserves authentication, validation, profile authorization and real demo SSE', { timeout: 30000 }, () => fixture(async (host, root) => {
+  const list = envelope('session.list', {}, 'generic-list');
+  assert.equal((await http(host, '/api/rpc', list, { authorization: '' })).status, 401);
+  assert.equal((await http(host, `/api/rpc?token=${host.token}`, list, { authorization: '' })).status, 401);
+  assert.equal((await http(host, '/api/rpc?unused=1', list)).status, 400);
+  const listed = await http(host, '/api/rpc', list);
+  assert.equal(listed.status, 200);
+  assert.deepEqual(JSON.parse(listed.body), { version: 1, id: 'generic-list', ok: true, result: [] });
+  const invalid = await http(host, '/api/rpc', envelope('session.create', { direct: 'implement', credentials: 'blocked' }, 'invalid-params'));
+  assert.equal(invalid.status, 400); assert.equal(JSON.parse(invalid.body).id, 'invalid-params');
+  for (const [method, params] of [['profiles.readiness', { reference: root }], ['session.create', { direct: root }]] as const) {
+    const denied = await http(host, '/api/rpc', envelope(method, params, 'denied-reference'));
+    assert.equal(denied.status, 403);
+    assert.equal(JSON.parse(denied.body).id, 'denied-reference');
+    assert.equal(JSON.parse(denied.body).version, 1);
+  }
+  assert.equal((await http(host, '/api/rpc', ' '.repeat(65537))).status, 413);
+  assert.equal((await http(host, '/api/rpc', '{')).status, 400);
+  const stream = await events(host);
+  try {
+    assert.equal((await stream.next()).event, 'ready');
+    const created = JSON.parse((await http(host, '/api/rpc', envelope('session.create', { direct: 'implement', title: 'Generic browser RPC' }, 'generic-create'))).body);
+    assert.equal(created.ok, true); assert.equal(created.id, 'generic-create');
+    const sessionId = created.result.session.id;
+    assert.equal((await post(host, 'session.get', { sessionId })).result.session.id, sessionId, 'The legacy method route sees the same active runtime.');
+    const accepted = JSON.parse((await http(host, '/api/rpc', envelope('session.submit', { sessionId, text: 'Prepare an offline launch kit.' }, 'generic-submit'))).body);
+    assert.deepEqual(accepted.result, { accepted: true });
+    const completed = await stream.until(frame => frame.data.event === 'session.state' && frame.data.sessionId === sessionId && !frame.data.state.busy && frame.data.state.session.tasks[0]?.status === 'completed');
+    assert.equal(completed.data.state.session.demo, true);
+  } finally { await stream.close(); }
+}));
+
 test('HTTP host authenticates, bounds requests and isolates concurrent request IDs', { timeout: 30000 }, () => fixture(async (host, root) => {
   const route = '/api/session.list', body = envelope('session.list');
   assert.equal((await http(host, route, body, { authorization: '' })).status, 401);

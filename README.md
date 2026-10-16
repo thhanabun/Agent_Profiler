@@ -1,6 +1,22 @@
 # Subharness
 
-Subharness is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. A local Node.js HTTP/SSE host is implemented for the planned web UI, using the same runtime. See [system overview](docs/SYSTEM_OVERVIEW.md) for what exists and what remains.
+Subharness is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. The Project First web UI is another client for the same runtime, with a small local Node.js host between the browser and native harnesses. See [system overview](docs/SYSTEM_OVERVIEW.md) for what exists and what remains.
+
+## Project First web workspace
+
+```sh
+npm ci
+npm run web:build
+npm run web:host -- --cwd /absolute/path/to/project --port 4180
+```
+
+Open `http://127.0.0.1:4180`. The integrated React/Vite/Tailwind client connects automatically through the host's same-origin bootstrap. Start with one message; choose profiles only when needed. Saved chats, streamed output, tasks, runs, file diffs, and explicit trust/permission/question responses use the existing runtime. English and Thai are supported. Native authentication stays on the machine.
+
+Run all npm scripts at the repository root. `npm run host -- ...` and `npm run web:host -- ...` start the same server; its default port is 5174, so pass 4180 when using the checked-in Vite proxy. For development, run `npm run web:dev` in a second terminal and open `http://127.0.0.1:5173`. Older hosts without bootstrap are supported through a token-entry prompt and their existing authenticated routes; the token stays in memory.
+
+For an explicit offline simulation, add `--demo` to the host command. Simulation uses the actual bridge and session store with fixed demo responses; it does not call models or edit project files. Stop the host with Ctrl+C to stop active work and save state. [Web setup, API and verification](web/README.md).
+
+Context is pasted text included in the next message. The web UI does not implement general file upload or a file manager; its file diffs come from actual recorded task changes. Readiness checks do not prove provider access, and an accepted turn is not a completed turn.
 
 ## Subharness CLI
 
@@ -51,13 +67,13 @@ The existing Node bridge is available to a trusted local host:
 node bin/subharness.mjs serve --stdio --cwd /path/to/project
 ```
 
-Browsers cannot launch or speak to a child process's stdio directly. The local Node host starts one existing CLI JSONL bridge child for a fixed project/state directory and translates HTTP requests and SSE events. The CLI child owns `SessionManager`, `Engine` and local `.subharness` persistence. See the [host route, token and manual-test guide](server/README.md).
+Browsers cannot launch or speak to a child process's stdio directly. The local Node host starts the existing CLI JSONL bridge as a child process and translates browser HTTP/SSE traffic. The CLI child owns `SessionManager` and `Engine`; the host preserves that boundary and binds to loopback.
 
 ## Web UI and local backend
 
-The Node.js 24+ TypeScript backend binds to loopback, checks Host/Origin, protects API/SSE routes with a per-instance token, and handles CLI shutdown and persistence. Its same-origin static adapter serves fixed `web/dist` output when available. The React + TypeScript + Vite + Tailwind client and its build are still absent, so static page requests currently return 503. Full browser use, the Vite proxy and live provider execution through HTTP remain unverified. No cloud login, remote database or hosted runner is required.
+The implemented Project First client uses React + TypeScript + Vite + Tailwind, served by a Node.js 24+ TypeScript host. The host serves the built UI and translates browser requests/events; the CLI child owns `SessionManager`/`Engine`, native execution and the existing `.subharness` local state. No cloud login, remote database or hosted runner is required.
 
-Current repository layout and planned additions:
+Current repository layout:
 
 ```text
 bin/                 CLI executable
@@ -68,17 +84,16 @@ fixtures/            Synthetic protocol and screen examples for backend/UI
 test/                Automated fixtures and opt-in live checks
 benchmarks/           Small coding-agent benchmark
 docs/                 Runtime architecture, UI protocol and handoffs
-web/                 Planned React web client
-server/               Local HTTP/SSE host, CLI child lifecycle and static build adapter
+web/                 Project First React client, Vite config and client tests
+server/               Local Node HTTP/SSE host and fixed web/dist static server
 ```
 
 - [Web UI handoff](docs/HANDOFF_UX_UI.md)
 - [Local host/backend handoff](docs/HANDOFF_BACKEND.md)
-- [Host routes, token and manual tests](server/README.md)
 - [Current implementation gaps](docs/PROJECT_GAP_ANALYSIS.md)
 - [System overview](docs/SYSTEM_OVERVIEW.md)
 
-Backend/UI can share browser-safe types and request validation from `src/contracts.ts`. [Protocol fixtures](fixtures/protocol/README.md) provide complete synthetic screens/events without model usage. `profiles.readiness` checks a selected profile before session creation; see [the protocol contract](docs/UI_PROTOCOL.md).
+The host validates requests with `src/contracts.ts`; the browser imports its shared types without importing the engine at runtime. [Protocol fixtures](fixtures/protocol/README.md) provide synthetic screens/events without model usage. `profiles.readiness` checks selected local setup before the first submitted turn; it does not verify provider access. See [the protocol contract](docs/UI_PROTOCOL.md), [web setup](web/README.md) and [host contract](server/README.md).
 
 ## Start
 
@@ -244,7 +259,7 @@ The first live launch requires trust by checksum and shows source, skills and pl
 
 ## Implementation and scope
 
-TypeScript + React/Ink TUI; OpenCode SDK/server; native Codex app-server; official Claude Agent SDK; local JSON sessions; ZIP profile bundles. The local HTTP/SSE host and static build adapter are implemented; the web client remains planned. The OpenCode server binds loopback with an ephemeral password. The runner preserves native project configuration; OpenCode merges config layers rather than creating a security sandbox.
+TypeScript + React/Ink TUI; React/TypeScript/Vite/Tailwind web client; local Node HTTP/SSE host with one existing CLI child; OpenCode SDK/server; native Codex app-server; official Claude Agent SDK; local JSON sessions; ZIP profile bundles. Browser transport reuses the shared JSONL contract and session runtime. The OpenCode server binds loopback with an ephemeral password. The runner preserves native project configuration; OpenCode merges config layers rather than creating a security sandbox.
 
 This slice implements three harness adapters (OpenCode, Codex and Claude), local source sharing, OCI image build/derive/inspect/diff/run, ORAS-backed push/pull, catalog discovery and locked teams. A hosted public catalog/account service, managed harness installation, external dependency resolution, a Pi adapter, parallel worktrees and background scheduling are not implemented. Install native harnesses separately; locked images check their exact runtime/adapter SDK versions and build platform. Windows OpenCode/Codex execution and a team downloaded from a real local OCI registry have passed. Claude's live call was blocked by expired native OAuth. See [test results](docs/TESTING.md); macOS/Linux and hosted registry authentication still need live checks.
 
