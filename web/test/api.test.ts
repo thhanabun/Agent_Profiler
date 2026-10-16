@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ProtocolEvent, ProtocolRequest, View } from '../../src/contracts.js';
-import { MissionApi, MissionApiError, readEventStream, sameHost, SessionSnapshots, type Bootstrap, type HostEvent } from '../src/api.js';
+import { HostApi, HostApiError, readEventStream, sameHost, SessionSnapshots, type Bootstrap, type HostEvent } from '../src/api.js';
 
 const a = '10000000-0000-4000-8000-000000000001';
 const b = '10000000-0000-4000-8000-000000000002';
@@ -59,7 +59,7 @@ test('browser API sends full protocol envelopes and keeps bearer credentials out
     request = JSON.parse(String(options?.body)) as ProtocolRequest;
     return json({ version: 1, id: request.id, ok: true, result: { accepted: true } });
   };
-  const api = new MissionApi(fetcher);
+  const api = new HostApi(fetcher);
   assert.deepEqual(await api.bootstrap(), bootstrap);
   assert.deepEqual(await api.rpc('session.submit', { sessionId: a, text: 'Explicit user message' }), { accepted: true });
   assert.equal(request?.version, 1);
@@ -77,7 +77,7 @@ test('browser API sends full protocol envelopes and keeps bearer credentials out
 
 test('RPC reports host errors and rejects mismatched response identities', async () => {
   let wrongId = false;
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     if (String(input) === '/api/bootstrap') return json(bootstrap);
     const request = JSON.parse(String(options?.body)) as ProtocolRequest;
     return json(wrongId ? { version: 1, id: 'another-request', ok: true, result: [] } :
@@ -93,8 +93,8 @@ test('host.error SSE events reach the controller and network failures give a use
   const events: HostEvent[] = [];
   await readEventStream(chunks('data: {"event":"host.error","error":"Native host exited"}\n\n'), event => events.push(event));
   assert.deepEqual(events, [{ event: 'host.error', error: 'Native host exited' }]);
-  const api = new MissionApi(async () => { throw new TypeError('fetch failed'); });
-  await assert.rejects(api.bootstrap(), error => error instanceof MissionApiError && error.kind === 'network' && /local Mission host/.test(error.message));
+  const api = new HostApi(async () => { throw new TypeError('fetch failed'); });
+  await assert.rejects(api.bootstrap(), error => error instanceof HostApiError && error.kind === 'network' && /local Subharness host/.test(error.message));
 });
 
 test('snapshots replace streamed output and ignore duplicate and decreasing sequence numbers', () => {
@@ -173,7 +173,7 @@ test('a late bootstrap response cannot roll the API credentials back to a previo
   let resolveOld!: (response: Response) => void;
   let calls = 0;
   const latest: Bootstrap = { ...bootstrap, mode: 'demo', token: 'new-host-token' };
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     if (String(input) === '/api/bootstrap') {
       calls++;
       if (calls === 1) return new Promise<Response>(resolve => { resolveOld = resolve; });
@@ -192,18 +192,18 @@ test('a late bootstrap response cannot roll the API credentials back to a previo
 
 test('legacy host startup requires a memory-only token and rejects blank or invalid credentials as auth failures', async () => {
   const urls: string[] = [];
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     const url = String(input); urls.push(url);
     if (url === '/api/bootstrap') return json({ error: 'Bearer token required.' }, 401);
     assert.equal(url, '/api/host');
     assert.equal(new Headers(options?.headers).get('Authorization'), 'Bearer wrong-token');
     return json({ error: 'Bearer token required.' }, 401);
   });
-  assert.throws(() => api.setToken('  \n '), error => error instanceof MissionApiError && error.kind === 'auth');
-  await assert.rejects(api.bootstrap(), error => error instanceof MissionApiError && error.kind === 'auth');
+  assert.throws(() => api.setToken('  \n '), error => error instanceof HostApiError && error.kind === 'auth');
+  await assert.rejects(api.bootstrap(), error => error instanceof HostApiError && error.kind === 'auth');
   assert.deepEqual(urls, ['/api/bootstrap']);
   api.setToken('wrong-token');
-  await assert.rejects(api.bootstrap(), error => error instanceof MissionApiError && error.kind === 'auth' && error.status === 401);
+  await assert.rejects(api.bootstrap(), error => error instanceof HostApiError && error.kind === 'auth' && error.status === 401);
   assert.deepEqual(urls, ['/api/bootstrap', '/api/bootstrap', '/api/host']);
 });
 
@@ -211,7 +211,7 @@ test('legacy 401/404 fallback authenticates host metadata, uses per-method envel
   for (const fallbackStatus of [401, 404]) {
     const calls: string[] = [];
     const token = 'configured-host-token';
-    const api = new MissionApi(async (input, options) => {
+    const api = new HostApi(async (input, options) => {
       const url = String(input); calls.push(url);
       if (url === '/api/bootstrap') {
         assert.equal(new Headers(options?.headers).get('Authorization'), null);
@@ -241,7 +241,7 @@ test('legacy 401/404 fallback authenticates host metadata, uses per-method envel
 
 test('token rotation returns auth failures from RPC, bootstrap, and SSE until a new token is supplied', async () => {
   let currentToken = 'first-token';
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     const url = String(input);
     if (url === '/api/bootstrap') return json({ error: 'Route not found.' }, 404);
     if (new Headers(options?.headers).get('Authorization') !== `Bearer ${currentToken}`) return json({ error: 'Bearer token required.' }, 401);
@@ -252,7 +252,7 @@ test('token rotation returns auth failures from RPC, bootstrap, and SSE until a 
   api.setToken(currentToken);
   const first = await api.bootstrap();
   currentToken = 'rotated-token';
-  const auth = (error: unknown) => error instanceof MissionApiError && error.kind === 'auth';
+  const auth = (error: unknown) => error instanceof HostApiError && error.kind === 'auth';
   await assert.rejects(api.rpc('session.list', {}), auth);
   await assert.rejects(api.events({ signal: new AbortController().signal, onEvent: () => assert.fail() }), auth);
   await assert.rejects(api.bootstrap(), auth);
@@ -266,7 +266,7 @@ test('token rotation returns auth failures from RPC, bootstrap, and SSE until a 
 test('automatic aliases remain preferred when they become available after a legacy connection', async () => {
   let automatic = false;
   const routes: string[] = [];
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     const url = String(input); routes.push(url);
     if (url === '/api/bootstrap') return automatic ? json(bootstrap) : json({ error: 'Not found' }, 404);
     if (url === '/api/host') return json({ cwd: '/work/project', stateDir: '/work/state', demo: false, methods: ['session.list'] });
@@ -284,7 +284,7 @@ test('automatic aliases remain preferred when they become available after a lega
 
 test('manual token replacement invalidates an outstanding automatic bootstrap response', async () => {
   let finish!: (response: Response) => void;
-  const api = new MissionApi(async () => new Promise<Response>(resolve => { finish = resolve; }));
+  const api = new HostApi(async () => new Promise<Response>(resolve => { finish = resolve; }));
   const pending = api.bootstrap();
   api.setToken('new-manually-entered-token');
   finish(json(bootstrap));
@@ -330,7 +330,7 @@ test('automatic-host 401 refreshes bootstrap once and never replays mutations on
   for (const command of commands) {
     let bootstrapCalls = 0, mutationCalls = 0;
     const next: Bootstrap = { ...bootstrap, token: 'restarted-host-token', mode: 'live', project: { name: 'Other project', cwd: '/another/project' } };
-    const api = new MissionApi(async (input, options) => {
+    const api = new HostApi(async (input, options) => {
       const url = String(input);
       if (url === '/api/bootstrap') return json(++bootstrapCalls === 1 ? bootstrap : next);
       assert.equal(url, '/api/rpc');
@@ -346,7 +346,7 @@ test('automatic-host 401 refreshes bootstrap once and never replays mutations on
       return json({ error: 'Bearer token required.' }, 401);
     });
     await api.bootstrap();
-    await assert.rejects(api.rpc(command.method, command.params as never), error => error instanceof MissionApiError && error.kind === 'reconnect');
+    await assert.rejects(api.rpc(command.method, command.params as never), error => error instanceof HostApiError && error.kind === 'reconnect');
     assert.equal(bootstrapCalls, 2);
     assert.equal(mutationCalls, 1);
     assert.deepEqual(await api.rpc('session.list', {}), []);
@@ -357,7 +357,7 @@ test('automatic-host 401 refreshes bootstrap once and never replays mutations on
 test('automatic SSE 401 signals reconnect after one bootstrap refresh without reopening the stream itself', async () => {
   let bootstrapCalls = 0, streamCalls = 0, opened = false;
   const next: Bootstrap = { ...bootstrap, mode: 'demo', token: 'new-stream-token' };
-  const api = new MissionApi(async (input, options) => {
+  const api = new HostApi(async (input, options) => {
     if (String(input) === '/api/bootstrap') return json(++bootstrapCalls === 1 ? bootstrap : next);
     assert.equal(String(input), '/api/events');
     streamCalls++;
@@ -366,7 +366,7 @@ test('automatic SSE 401 signals reconnect after one bootstrap refresh without re
     return new Response(chunks('event: ready\ndata: {"version":1,"event":"ready","methods":[]}\n\n'), { headers: { 'Content-Type': 'text/event-stream' } });
   });
   await api.bootstrap();
-  await assert.rejects(api.events({ signal: new AbortController().signal, onOpen() { opened = true; }, onEvent: () => assert.fail() }), error => error instanceof MissionApiError && error.kind === 'reconnect');
+  await assert.rejects(api.events({ signal: new AbortController().signal, onOpen() { opened = true; }, onEvent: () => assert.fail() }), error => error instanceof HostApiError && error.kind === 'reconnect');
   assert.equal(opened, false);
   assert.equal(bootstrapCalls, 2);
   assert.equal(streamCalls, 1);
@@ -378,7 +378,7 @@ test('automatic SSE 401 signals reconnect after one bootstrap refresh without re
 
 test('automatic refresh requests manual authentication if only an unauthorized legacy host remains', async () => {
   let first = true, mutations = 0;
-  const api = new MissionApi(async (input) => {
+  const api = new HostApi(async (input) => {
     const url = String(input);
     if (url === '/api/bootstrap') {
       if (first) { first = false; return json(bootstrap); }
@@ -390,6 +390,6 @@ test('automatic refresh requests manual authentication if only an unauthorized l
     return json({ error: 'Bearer token required.' }, 401);
   });
   await api.bootstrap();
-  await assert.rejects(api.rpc('session.submit', { sessionId: a, text: 'Do not replay' }), error => error instanceof MissionApiError && error.kind === 'auth');
+  await assert.rejects(api.rpc('session.submit', { sessionId: a, text: 'Do not replay' }), error => error instanceof HostApiError && error.kind === 'auth');
   assert.equal(mutations, 1);
 });

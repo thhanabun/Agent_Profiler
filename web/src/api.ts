@@ -13,10 +13,10 @@ export function sameHost(previous: Bootstrap, next: Bootstrap): boolean {
     previous.project.cwd === next.project.cwd && previous.project.name === next.project.name;
 }
 
-export class MissionApiError extends Error {
+export class HostApiError extends Error {
   constructor(message: string, readonly status?: number, readonly kind: 'network' | 'http' | 'protocol' | 'host' | 'auth' | 'reconnect' = 'protocol') {
     super(message);
-    this.name = 'MissionApiError';
+    this.name = 'HostApiError';
   }
 }
 
@@ -29,14 +29,14 @@ export function isView(value: unknown): value is View {
 }
 
 function eventFrom(value: unknown): HostEvent {
-  if (!object(value)) throw new MissionApiError('The local host sent an invalid event.');
+  if (!object(value)) throw new HostApiError('The local host sent an invalid event.');
   if (value.event === 'host.error' && typeof value.error === 'string') return value as HostEvent;
-  if (value.version !== 1) throw new MissionApiError('The local host uses an unsupported protocol version.');
+  if (value.version !== 1) throw new HostApiError('The local host uses an unsupported protocol version.');
   if (value.event === 'ready' && Array.isArray(value.methods) && value.methods.every(method => typeof method === 'string')) return value as HostEvent;
   if (value.event === 'operation.error' && typeof value.sessionId === 'string' && typeof value.error === 'string') return value as HostEvent;
   if (value.event === 'session.state' && typeof value.sessionId === 'string' && Number.isSafeInteger(value.sequence) &&
       Number(value.sequence) >= 0 && isView(value.state) && value.state.session.id === value.sessionId) return value as HostEvent;
-  throw new MissionApiError('The local host sent an invalid session event.');
+  throw new HostApiError('The local host sent an invalid session event.');
 }
 
 /** Decode fetch-based SSE without placing the authentication token in a URL. */
@@ -53,7 +53,7 @@ export async function readEventStream(stream: ReadableStream<Uint8Array>, onEven
     data = []; size = 0;
     let value: unknown;
     try { value = JSON.parse(payload); }
-    catch { throw new MissionApiError('The local host sent an unreadable event. Reconnect and try again.'); }
+    catch { throw new HostApiError('The local host sent an unreadable event. Reconnect and try again.'); }
     onEvent(eventFrom(value));
   };
   const line = (value: string) => {
@@ -64,7 +64,7 @@ export async function readEventStream(stream: ReadableStream<Uint8Array>, onEven
     let content = colon < 0 ? '' : value.slice(colon + 1);
     if (content.startsWith(' ')) content = content.slice(1);
     size += content.length;
-    if (size > maximum) throw new MissionApiError('The local host event exceeds the browser size limit.');
+    if (size > maximum) throw new HostApiError('The local host event exceeds the browser size limit.');
     data.push(content);
   };
   const consume = (final = false) => {
@@ -78,7 +78,7 @@ export async function readEventStream(stream: ReadableStream<Uint8Array>, onEven
       start = index + 1;
     }
     buffer = buffer.slice(start);
-    if (buffer.length > maximum) throw new MissionApiError('The local host event exceeds the browser size limit.');
+    if (buffer.length > maximum) throw new HostApiError('The local host event exceeds the browser size limit.');
     if (final && buffer) { line(buffer); buffer = ''; }
   };
   const abort = () => { void reader.cancel().catch(() => {}); };
@@ -102,7 +102,7 @@ export async function readEventStream(stream: ReadableStream<Uint8Array>, onEven
   }
 }
 
-export class MissionApi {
+export class HostApi {
   private token: string | null = null;
   private bootstrapSequence = 0;
   private acceptedBootstrap = 0;
@@ -111,7 +111,7 @@ export class MissionApi {
   constructor(private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis), private readonly base = '') {}
 
   setToken(token: string): void {
-    if (!token.trim()) throw new MissionApiError('Enter the local host token printed in your terminal.', 401, 'auth');
+    if (!token.trim()) throw new HostApiError('Enter the local host token printed in your terminal.', 401, 'auth');
     this.token = token.trim();
     this.latestBootstrap = null;
     this.acceptedBootstrap = ++this.bootstrapSequence;
@@ -122,20 +122,20 @@ export class MissionApi {
       return await this.fetcher(`${this.base}${path}`, { cache: 'no-store', credentials: 'same-origin', redirect: 'error', ...options });
     } catch (error) {
       if (options.signal?.aborted) throw error;
-      throw new MissionApiError('Cannot reach the local Mission host. Check that it is running, then reconnect.', undefined, 'network');
+      throw new HostApiError('Cannot reach the local Subharness host. Check that it is running, then reconnect.', undefined, 'network');
     }
   }
   private async json(response: Response): Promise<unknown> {
     if (response.status === 401) {
       await response.body?.cancel().catch(() => {});
-      throw new MissionApiError('The local host token is missing or expired. Enter the current token from your terminal.', 401, 'auth');
+      throw new HostApiError('The local host token is missing or expired. Enter the current token from your terminal.', 401, 'auth');
     }
     let value: unknown;
     try { value = await response.json(); }
-    catch { throw new MissionApiError(`The local host returned an unreadable response (${response.status}).`, response.status); }
+    catch { throw new HostApiError(`The local host returned an unreadable response (${response.status}).`, response.status); }
     if (!response.ok) {
       const reason = object(value) && typeof value.error === 'string' ? value.error : `The local host request failed (${response.status}).`;
-      throw new MissionApiError(reason, response.status, 'http');
+      throw new HostApiError(reason, response.status, 'http');
     }
     return value;
   }
@@ -145,7 +145,7 @@ export class MissionApi {
     if (response.status === 401 && automatic) {
       await response.body?.cancel().catch(() => {});
       await this.bootstrap(options.signal ?? undefined);
-      throw new MissionApiError('The local host connection was refreshed. Reconnect before continuing; the last request was not replayed.', 401, 'reconnect');
+      throw new HostApiError('The local host connection was refreshed. Reconnect before continuing; the last request was not replayed.', 401, 'reconnect');
     }
     return response;
   }
@@ -157,13 +157,13 @@ export class MissionApi {
     if (response.status === 401 || response.status === 404) {
       await response.body?.cancel().catch(() => {});
       const token = this.token;
-      if (!token) throw new MissionApiError('Enter the local host token printed in your terminal to connect.', 401, 'auth');
+      if (!token) throw new HostApiError('Enter the local host token printed in your terminal to connect.', 401, 'auth');
       const host = await this.json(await this.request('/api/host', {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, signal,
       }));
       if (!object(host) || typeof host.cwd !== 'string' || !host.cwd || typeof host.stateDir !== 'string' ||
           typeof host.demo !== 'boolean' || !Array.isArray(host.methods) || !host.methods.every(method => typeof method === 'string')) {
-        throw new MissionApiError('The local host returned invalid project information.');
+        throw new HostApiError('The local host returned invalid project information.');
       }
       const name = host.cwd.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).at(-1) || host.cwd;
       value = { token, project: { name, cwd: host.cwd }, mode: host.demo ? 'demo' : 'live', ready: true };
@@ -173,7 +173,7 @@ export class MissionApi {
     if (!object(value) || typeof value.token !== 'string' || !value.token || !object(value.project) ||
         typeof value.project.name !== 'string' || typeof value.project.cwd !== 'string' ||
         (value.mode !== 'live' && value.mode !== 'demo') || typeof value.ready !== 'boolean') {
-      throw new MissionApiError('The local host returned invalid startup information.');
+      throw new HostApiError('The local host returned invalid startup information.');
     }
     if (sequence < this.acceptedBootstrap) {
       if (this.latestBootstrap) return this.latestBootstrap;
@@ -186,7 +186,7 @@ export class MissionApi {
     return this.latestBootstrap;
   }
   async rpc<M extends ProtocolMethod>(method: M, params: RequestParams<M>, signal?: AbortSignal): Promise<ProtocolResults[M]> {
-    if (!this.token) throw new MissionApiError('Enter the local host token before sending a command.', 401, 'auth');
+    if (!this.token) throw new HostApiError('Enter the local host token before sending a command.', 401, 'auth');
     const id = globalThis.crypto.randomUUID();
     const request = { version: 1, id, method, params } as ProtocolRequest;
     const value = await this.json(await this.authenticated(this.legacy ? `/api/${method}` : '/api/rpc', {
@@ -194,25 +194,25 @@ export class MissionApi {
       body: JSON.stringify(request), signal,
     }));
     if (!object(value) || value.version !== 1 || value.id !== id || typeof value.ok !== 'boolean') {
-      throw new MissionApiError('The local host returned a response for a different command.');
+      throw new HostApiError('The local host returned a response for a different command.');
     }
     const response = value as ProtocolResponse<M>;
-    if (!response.ok) throw new MissionApiError(response.error);
-    if (!('result' in response)) throw new MissionApiError('The local host omitted the command result.');
+    if (!response.ok) throw new HostApiError(response.error);
+    if (!('result' in response)) throw new HostApiError('The local host omitted the command result.');
     return response.result;
   }
   async events(options: { signal: AbortSignal; onOpen?: () => void; onEvent: (event: HostEvent) => void }): Promise<void> {
-    if (!this.token) throw new MissionApiError('Enter the local host token before opening its event stream.', 401, 'auth');
+    if (!this.token) throw new HostApiError('Enter the local host token before opening its event stream.', 401, 'auth');
     const response = await this.authenticated('/api/events', {
       headers: { Authorization: `Bearer ${this.token}`, Accept: 'text/event-stream' }, signal: options.signal,
     });
     if (!response.ok) { await this.json(response); return; }
     if (!response.headers.get('content-type')?.includes('text/event-stream') || !response.body) {
-      throw new MissionApiError('The local host did not open a session event stream.');
+      throw new HostApiError('The local host did not open a session event stream.');
     }
     options.onOpen?.();
     await readEventStream(response.body, options.onEvent, options.signal);
-    if (!options.signal.aborted) throw new MissionApiError('The connection to the local Mission host closed. Reconnecting…', undefined, 'network');
+    if (!options.signal.aborted) throw new HostApiError('The connection to the local Subharness host closed. Reconnecting…', undefined, 'network');
   }
 }
 
@@ -246,7 +246,7 @@ export class SessionSnapshots {
     return event.state;
   }
   beginSelection(): number {
-    if (this.selection) throw new MissionApiError('A conversation is already being opened. Please wait.');
+    if (this.selection) throw new HostApiError('A conversation is already being opened. Please wait.');
     const generation = ++this.generation;
     this.selection = { generation, baseline: this.sequence };
     return generation;

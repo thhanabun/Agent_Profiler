@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProfileChoiceSummary, ProfileReadiness, ProtocolRequest, ProtocolResults, View } from '../../src/contracts.js';
-import { isView, sameHost, MissionApi, MissionApiError, SessionSnapshots, type Bootstrap, type RequestParams } from './api.js';
+import { isView, sameHost, HostApi, HostApiError, SessionSnapshots, type Bootstrap, type RequestParams } from './api.js';
 
 export type CreateParams = Extract<ProtocolRequest, { method: 'session.create' }>['params'];
-export type MissionCommand = 'session.stop' | 'session.pause' | 'session.resume' | 'session.retry' | 'session.assign' | 'request.respond' | 'session.rename';
-export type CommandParams<M extends MissionCommand> = Omit<RequestParams<M>, 'sessionId'>;
-type CommandArguments<M extends MissionCommand> = {} extends CommandParams<M> ? [params?: CommandParams<M>] : [params: CommandParams<M>];
-export type MissionController = {
+export type SubharnessCommand = 'session.stop' | 'session.pause' | 'session.resume' | 'session.retry' | 'session.assign' | 'request.respond' | 'session.rename';
+export type CommandParams<M extends SubharnessCommand> = Omit<RequestParams<M>, 'sessionId'>;
+type CommandArguments<M extends SubharnessCommand> = {} extends CommandParams<M> ? [params?: CommandParams<M>] : [params: CommandParams<M>];
+export type SubharnessController = {
   bootstrap: Bootstrap | null;
   connection: 'connecting' | 'connected' | 'reconnecting' | 'offline';
   view: View | null;
@@ -24,7 +24,7 @@ export type MissionController = {
   create(params: CreateParams): Promise<View>;
   open(id: string): Promise<View>;
   submit(text: string): Promise<void>;
-  command<M extends MissionCommand>(method: M, ...args: CommandArguments<M>): Promise<void>;
+  command<M extends SubharnessCommand>(method: M, ...args: CommandArguments<M>): Promise<void>;
 };
 
 const reason = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -38,9 +38,9 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function useMission(): MissionController {
+export function useSubharness(): SubharnessController {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [connection, setConnection] = useState<MissionController['connection']>('connecting');
+  const [connection, setConnection] = useState<SubharnessController['connection']>('connecting');
   const [view, setView] = useState<View | null>(null);
   const [sessions, setSessions] = useState<ProtocolResults['session.list']>([]);
   const [profiles, setProfiles] = useState<ProfileChoiceSummary[]>([]);
@@ -49,8 +49,8 @@ export function useMission(): MissionController {
   const [pending, setPending] = useState(false);
   const [requiresToken, setRequiresToken] = useState(false);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
-  const api = useRef<MissionApi | null>(null);
-  if (!api.current) api.current = new MissionApi();
+  const api = useRef<HostApi | null>(null);
+  if (!api.current) api.current = new HostApi();
   const snapshots = useRef(new SessionSnapshots());
   const life = useRef<AbortController | null>(null);
   const mounted = useRef(false);
@@ -62,7 +62,7 @@ export function useMission(): MissionController {
   if (!hostRequests.current) hostRequests.current = new AbortController();
 
   const requireToken = useCallback((failure: unknown): boolean => {
-    if (!(failure instanceof MissionApiError) || failure.kind !== 'auth') return false;
+    if (!(failure instanceof HostApiError) || failure.kind !== 'auth') return false;
     if (mounted.current) {
       setRequiresToken(true);
       setConnection('offline');
@@ -81,7 +81,7 @@ export function useMission(): MissionController {
   }, []);
   const isCurrentHost = useCallback((expected: Bootstrap) => Boolean(startup.current && sameHost(startup.current, expected)), []);
   const reconnect = useCallback((failure: unknown): boolean => {
-    if (!(failure instanceof MissionApiError) || failure.kind !== 'reconnect') return false;
+    if (!(failure instanceof HostApiError) || failure.kind !== 'reconnect') return false;
     if (mounted.current) {
       connectionError.current = failure.message;
       setConnection('reconnecting');
@@ -162,7 +162,7 @@ export function useMission(): MissionController {
       if (id && !current.switching) {
         const sequence = current.sequence, generation = current.generation;
         const state = await api.current!.rpc('session.get', { sessionId: id }, rpcSignal);
-        if (!isView(state)) throw new MissionApiError('The local host returned an invalid conversation snapshot.');
+        if (!isView(state)) throw new HostApiError('The local host returned an invalid conversation snapshot.');
         if (!rpcSignal.aborted && epoch === snapshots.current.hostEpoch) {
           const next = current.refreshed(state, id, sequence, generation);
           if (next) replace(next);
@@ -213,7 +213,7 @@ export function useMission(): MissionController {
               if (streamSignal.aborted || epoch !== snapshots.current.hostEpoch) return;
               if (event.event === 'host.error') {
                 setConnection('offline');
-                throw new MissionApiError(event.error, undefined, 'host');
+                throw new HostApiError(event.error, undefined, 'host');
               }
               if (event.event === 'ready') { failures = 0; sync(); return; }
               if (event.event === 'session.state') {
@@ -228,7 +228,7 @@ export function useMission(): MissionController {
         } catch (failure) {
           if (controller.signal.aborted) break;
           if (attemptEpoch !== snapshots.current.hostEpoch || aborted(failure)) continue;
-          if (failure instanceof MissionApiError && failure.kind === 'reconnect') {
+          if (failure instanceof HostApiError && failure.kind === 'reconnect') {
             connectionError.current = failure.message;
             setConnection('reconnecting');
             setError(failure.message);
@@ -238,7 +238,7 @@ export function useMission(): MissionController {
           failures++;
           connectionError.current = reason(failure);
           setError(connectionError.current);
-          setConnection(failure instanceof MissionApiError && failure.kind === 'host' || failures >= 3 ? 'offline' : 'reconnecting');
+          setConnection(failure instanceof HostApiError && failure.kind === 'host' || failures >= 3 ? 'offline' : 'reconnecting');
           await wait(Math.min(8000, 500 * 2 ** Math.min(failures - 1, 4)), controller.signal);
         }
       }
@@ -259,7 +259,7 @@ export function useMission(): MissionController {
       try { return await api.current!.rpc('profiles.readiness', { reference }, signal); }
       catch (failure) {
         if (aborted(failure, signal)) throw failure;
-        if (failure instanceof MissionApiError && (failure.kind === 'auth' || failure.kind === 'reconnect')) throw failure;
+        if (failure instanceof HostApiError && (failure.kind === 'auth' || failure.kind === 'reconnect')) throw failure;
         const message = `Could not check ${reference}: ${reason(failure)}`;
         return { reference, checkedAt: new Date().toISOString(), available: false, reason: message,
           checks: [{ kind: 'source' as const, status: 'unverified' as const, reason: message,
@@ -286,10 +286,10 @@ export function useMission(): MissionController {
       const state = method === 'session.create'
         ? await api.current!.rpc('session.create', params as CreateParams, signal)
         : await api.current!.rpc('session.open', params as { sessionId: string }, signal);
-      if (!isView(state)) throw new MissionApiError('The local host returned an invalid conversation snapshot.');
+      if (!isView(state)) throw new HostApiError('The local host returned an invalid conversation snapshot.');
       if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
       const next = current.finishSelection(state, generation);
-      if (!next) throw new MissionApiError('The conversation changed before it finished opening. Please open it again.');
+      if (!next) throw new HostApiError('The conversation changed before it finished opening. Please open it again.');
       replace(next);
       if (mounted.current) setError(null);
       return next;
@@ -302,20 +302,20 @@ export function useMission(): MissionController {
   const create = useCallback((params: CreateParams) => changeSession('session.create', params), [changeSession]);
   const open = useCallback((id: string) => changeSession('session.open', { sessionId: id }), [changeSession]);
   const currentSession = useCallback(() => {
-    if (snapshots.current.switching) throw new MissionApiError('Wait for the conversation to finish opening.');
-    if (!snapshots.current.activeId) throw new MissionApiError('Open or create a conversation before sending a message.');
-    if (!startup.current?.ready) throw new MissionApiError('The local Mission host is not ready. Reconnect and try again.');
+    if (snapshots.current.switching) throw new HostApiError('Wait for the conversation to finish opening.');
+    if (!snapshots.current.activeId) throw new HostApiError('Open or create a conversation before sending a message.');
+    if (!startup.current?.ready) throw new HostApiError('The local Subharness host is not ready. Reconnect and try again.');
     return snapshots.current.activeId;
   }, []);
   const submit = useCallback((text: string) => track(async signal => {
     const trimmed = text.trim();
-    if (!trimmed) throw new MissionApiError('Write a message before sending.');
-    if (trimmed.length > 16000) throw new MissionApiError('Messages must be 16,000 characters or fewer.');
+    if (!trimmed) throw new HostApiError('Write a message before sending.');
+    if (trimmed.length > 16000) throw new HostApiError('Messages must be 16,000 characters or fewer.');
     const sessionId = currentSession();
     await api.current!.rpc('session.submit', { sessionId, text: trimmed }, signal);
     // An accepted response starts work. Only later snapshots describe its progress or completion.
   }), [currentSession, track]);
-  const command = useCallback(async <M extends MissionCommand>(method: M, ...args: CommandArguments<M>): Promise<void> => {
+  const command = useCallback(async <M extends SubharnessCommand>(method: M, ...args: CommandArguments<M>): Promise<void> => {
     await track(async signal => {
       const sessionId = currentSession();
       await api.current!.rpc(method, { ...args[0], sessionId } as RequestParams<M>, signal);
