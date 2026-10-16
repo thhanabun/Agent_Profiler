@@ -2,15 +2,52 @@
 
 WorkerDeck is a local-first agent workspace. Its CLI/TUI, profiles, orchestrator, worker harnesses and saved sessions are one system. The Project First web UI is another client for the same runtime, with a small local Node.js host between the browser and native harnesses. See [runtime architecture](docs/ARCHITECTURE.md) for how the parts fit together.
 
-## Project First web workspace
+## Quick start
+
+Requires Node.js 24+ and npm. Get the source with Git:
 
 ```sh
+git clone https://github.com/thhanabun/Agent_Profiler.git
+cd Agent_Profiler
 npm ci
-npm run web:build
-npm run web:host -- --cwd /absolute/path/to/project --port 4180
 ```
 
-Open `http://127.0.0.1:4180`. The integrated React/Vite/Tailwind client connects automatically through the host's same-origin bootstrap. Start with one message; choose profiles only when needed. Saved chats, streamed output, tasks, runs, file diffs, and explicit trust/permission/question responses use the existing runtime. English and Thai are supported. Native authentication stays on the machine.
+Without Git, download the source archive with curl (macOS, Linux or WSL), then install dependencies:
+
+```sh
+curl -fL https://github.com/thhanabun/Agent_Profiler/archive/refs/heads/main.tar.gz -o workerdeck.tar.gz
+tar -xzf workerdeck.tar.gz
+cd Agent_Profiler-main
+npm ci
+```
+
+The project is not published as an npm package. Run its commands from the repository root.
+
+### CLI
+
+```sh
+npm run workerdeck -- --help
+npm run workerdeck -- demo
+npm run workerdeck -- doctor
+npm run workerdeck -- run --cwd "/path/to/project"
+```
+
+`demo` is an offline simulation. A live session uses the native harness accounts already set up on your machine. To use `workerdeck` directly in a local checkout, run `npm link` from the repository root, then use `workerdeck --help`; remove the link with `npm unlink --global workerdeck`.
+
+### Web app
+
+Build and serve the local web app against a project directory:
+
+```sh
+npm run web:build
+npm run web:host -- --cwd "/path/to/project" --port 4180
+```
+
+Open `http://127.0.0.1:4180`. For frontend development, keep the host running and start `npm run web:dev` in a second terminal; open `http://127.0.0.1:5173`. All commands run from the repository root. See [web setup and API details](web/README.md).
+
+## Project First web workspace
+
+The integrated React/Vite/Tailwind client connects automatically through the host's same-origin bootstrap. Start with one message; choose profiles only when needed. Saved chats, streamed output, tasks, runs, file diffs, and explicit trust/permission/question responses use the existing runtime. English and Thai are supported. Native authentication stays on the machine.
 
 Run all npm scripts at the repository root. `npm run host -- ...` and `npm run web:host -- ...` start the same server; its default port is 5174, so pass 4180 when using the checked-in Vite proxy. For development, run `npm run web:dev` in a second terminal and open `http://127.0.0.1:5173`. Older hosts without bootstrap are supported through a token-entry prompt and their existing authenticated routes; the token stays in memory.
 
@@ -92,16 +129,9 @@ Contributor references: [runtime architecture](docs/ARCHITECTURE.md), [UI protoc
 
 The host validates requests with `src/contracts.ts`; the browser imports its shared types without importing the engine at runtime. [Protocol fixtures](fixtures/protocol/README.md) provide synthetic screens/events without model usage. `profiles.readiness` checks selected local setup before the first submitted turn; it does not verify provider access. See [the protocol contract](docs/UI_PROTOCOL.md), [web setup](web/README.md) and [host contract](server/README.md).
 
-## Start
+## First CLI session
 
-Requires Node.js 24+, npm, and Git. Live OpenCode profiles also require the native OpenCode CLI on PATH. Dependencies are pinned in `package-lock.json`.
-
-```sh
-npm ci
-npm run workerdeck -- demo
-```
-
-`demo` is an **offline simulation**: it previews routing and handoffs, makes no model requests, and changes no project files. It is visibly labelled throughout. It does save its local conversation state.
+`npm run workerdeck -- demo` is an **offline simulation**: it previews routing and handoffs, makes no model requests, and changes no project files. It is visibly labelled throughout. It does save its local conversation state.
 
 Use a terminal at least 105 columns wide for all three panes:
 
